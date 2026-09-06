@@ -1,0 +1,392 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+} from 'react';
+import { MoreHorizontal, PanelRightOpen, Pin, PinOff } from 'lucide-react';
+import { TABS, TAB_IDS, getTab } from '@/constants/tabs';
+import { TAB_DRAG_TYPE, isTabDrag } from '@/constants/dragTypes';
+import { usePreferenceStore, useUIStore } from '@/store';
+import {
+  applyTabOrder,
+  computeTabLayout,
+  moveTabBeforeOrAfter,
+  promoteTabToBar,
+  resolveBarDropSide,
+  sideFromPointerX,
+  type DropSide,
+  type TabLayout,
+} from '@/utils/tabUtils';
+import { cn } from '@/utils/cn';
+
+interface DropIndicator {
+  readonly targetId: string;
+  readonly side: DropSide;
+}
+
+/** `inset` box-shadow instead of a border: an insertion line that never shifts layout. */
+function indicatorStyle(side: DropSide): React.CSSProperties {
+  return {
+    boxShadow: `inset ${side === 'before' ? '2px' : '-2px'} 0 0 0 rgb(var(--dx-accent))`,
+  };
+}
+
+interface TabButtonProps {
+  tabId: string;
+  isActive: boolean;
+  isPinned: boolean;
+  draggable: boolean;
+  isDropTarget: boolean;
+  dropSide: DropSide | null;
+  onSelect: (id: string) => void;
+  onTogglePin: (id: string) => void;
+  onDragStart?: (event: DragEvent<Element>, id: string) => void;
+  onDragEnd?: () => void;
+  onDragOverTab?: (event: DragEvent<HTMLDivElement>, id: string) => void;
+  onDropOnTab?: (event: DragEvent<HTMLDivElement>, id: string) => void;
+}
+
+function TabButton({
+  tabId,
+  isActive,
+  isPinned,
+  draggable,
+  isDropTarget,
+  dropSide,
+  onSelect,
+  onTogglePin,
+  onDragStart,
+  onDragEnd,
+  onDragOverTab,
+  onDropOnTab,
+}: TabButtonProps) {
+  const tab = getTab(tabId);
+  if (!tab) return null;
+
+  const Icon = tab.icon;
+
+  return (
+    <div
+      draggable={draggable}
+      onDragStart={(e) => onDragStart?.(e, tabId)}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => onDragOverTab?.(e, tabId)}
+      onDrop={(e) => onDropOnTab?.(e, tabId)}
+      style={isDropTarget && dropSide ? indicatorStyle(dropSide) : undefined}
+      className="group relative flex shrink-0 items-center"
+    >
+      <button
+        type="button"
+        role="tab"
+        aria-selected={isActive}
+        title={tab.description}
+        onClick={() => onSelect(tabId)}
+        className={cn(
+          'flex items-center gap-1.5 border-b-2 py-2 pl-3 pr-7 text-sm whitespace-nowrap',
+          isActive
+            ? 'border-accent text-fg'
+            : 'border-transparent text-fg-muted hover:text-fg',
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+        {tab.label}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onTogglePin(tabId)}
+        aria-label={isPinned ? `Unpin ${tab.label}` : `Pin ${tab.label}`}
+        title={isPinned ? 'Unpin' : 'Pin'}
+        className={cn(
+          'absolute right-1 rounded p-0.5 text-fg-subtle hover:bg-surface-raised hover:text-fg',
+          // Pinned state stays visible; the rest reveal on hover or keyboard focus.
+          isPinned ? 'opacity-100' : 'opacity-0 focus:opacity-100 group-hover:opacity-100',
+        )}
+      >
+        {isPinned ? (
+          <Pin className="h-3 w-3 fill-current" aria-hidden="true" />
+        ) : (
+          <Pin className="h-3 w-3" aria-hidden="true" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+export function TabBar() {
+  const activeTab = useUIStore((state) => state.activeTab);
+  const setActiveTab = useUIStore((state) => state.setActiveTab);
+  const pinnedTabs = usePreferenceStore((state) => state.pinnedTabs);
+  const tabOrder = usePreferenceStore((state) => state.tabOrder);
+  const togglePinTab = usePreferenceStore((state) => state.togglePinTab);
+  const setTabOrder = usePreferenceStore((state) => state.setTabOrder);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<DropIndicator | null>(null);
+  const [trailingZoneActive, setTrailingZoneActive] = useState(false);
+
+  const menuRef = useRef<HTMLUListElement>(null);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+
+  const layout: TabLayout = useMemo(
+    () => computeTabLayout(TAB_IDS, pinnedTabs, tabOrder),
+    [pinnedTabs, tabOrder],
+  );
+
+  // Outside click closes the More menu. A full-screen backdrop (the more
+  // common way to build this) would sit, as a fixed+z-indexed element, on top
+  // of the horizontal tab bar itself — which is exactly where a promoted tab
+  // needs to be dropped. A document-level listener achieves the same
+  // click-outside behaviour without ever intercepting pointer or drag events
+  // meant for the bar underneath.
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target) === true) return;
+      if (menuToggleRef.current?.contains(target) === true) return;
+      setMenuOpen(false);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
+  const fullOrder = useMemo(() => applyTabOrder(TAB_IDS, tabOrder), [tabOrder]);
+
+  const handleDragStart = useCallback((event: DragEvent<Element>, id: string): void => {
+    setDraggingId(id);
+    // Tagged with a private MIME type so the window-level file dropzone can tell
+    // a tab reorder apart from a real file drag and stay out of the way.
+    event.dataTransfer.setData(TAB_DRAG_TYPE, id);
+    event.dataTransfer.setData('text/plain', id);
+    event.dataTransfer.effectAllowed = 'move';
+  }, []);
+
+  const handleDragEnd = useCallback((): void => {
+    setDraggingId(null);
+    setDropIndicator(null);
+    setTrailingZoneActive(false);
+  }, []);
+
+  const handleDragOverTab = useCallback(
+    (event: DragEvent<HTMLDivElement>, targetId: string): void => {
+      if (!isTabDrag(event)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+
+      const rawSide = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
+      const side = resolveBarDropSide(layout, targetId, rawSide);
+      setDropIndicator((current) =>
+        current?.targetId === targetId && current.side === side ? current : { targetId, side },
+      );
+    },
+    [layout],
+  );
+
+  const handleDropOnTab = useCallback(
+    (event: DragEvent<HTMLDivElement>, targetId: string): void => {
+      if (!isTabDrag(event)) return;
+      event.preventDefault();
+
+      const sourceId = event.dataTransfer.getData(TAB_DRAG_TYPE);
+      handleDragEnd();
+      if (!sourceId || sourceId === targetId) return;
+
+      const rawSide = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
+      const side = resolveBarDropSide(layout, targetId, rawSide);
+      setTabOrder(moveTabBeforeOrAfter(fullOrder, sourceId, targetId, side));
+    },
+    [layout, fullOrder, setTabOrder, handleDragEnd],
+  );
+
+  const handleTrailingDragOver = useCallback((event: DragEvent<HTMLDivElement>): void => {
+    if (!isTabDrag(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+    setTrailingZoneActive(true);
+    setDropIndicator(null);
+  }, []);
+
+  const handleTrailingDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>): void => {
+      if (!isTabDrag(event)) return;
+      event.preventDefault();
+      const sourceId = event.dataTransfer.getData(TAB_DRAG_TYPE);
+      handleDragEnd();
+      if (!sourceId) return;
+      setTabOrder(promoteTabToBar(fullOrder, sourceId, layout));
+    },
+    [fullOrder, layout, setTabOrder, handleDragEnd],
+  );
+
+  const handlePromoteToBar = useCallback(
+    (tabId: string) => {
+      setTabOrder(promoteTabToBar(fullOrder, tabId, layout));
+    },
+    [fullOrder, layout, setTabOrder],
+  );
+
+  const overflowTabs = layout.overflow.map((id) => getTab(id)).filter((t) => t !== undefined);
+  const activeIsOverflowed = layout.overflow.includes(activeTab);
+
+  const handleMenuKeyDown = (event: KeyboardEvent<HTMLUListElement>): void => {
+    if (event.key === 'Escape') setMenuOpen(false);
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Tools"
+      className="relative flex shrink-0 items-stretch border-b border-line bg-surface"
+    >
+      <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto dx-scrollbar">
+        {layout.pinned.map((id) => (
+          <TabButton
+            key={id}
+            tabId={id}
+            isActive={id === activeTab}
+            isPinned
+            draggable={false}
+            isDropTarget={false}
+            dropSide={null}
+            onSelect={setActiveTab}
+            onTogglePin={togglePinTab}
+          />
+        ))}
+
+        {layout.bar.map((id) => (
+          <TabButton
+            key={id}
+            tabId={id}
+            isActive={id === activeTab}
+            isPinned={false}
+            draggable
+            isDropTarget={dropIndicator?.targetId === id}
+            dropSide={dropIndicator?.targetId === id ? dropIndicator.side : null}
+            onSelect={setActiveTab}
+            onTogglePin={togglePinTab}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+            onDragOverTab={handleDragOverTab}
+            onDropOnTab={handleDropOnTab}
+          />
+        ))}
+
+        {/* Accepts a drop anywhere in the remaining bar width, not just on a tab —
+            promotes the dragged tab to the end of the visible row. */}
+        <div
+          onDragOver={handleTrailingDragOver}
+          onDragLeave={() => setTrailingZoneActive(false)}
+          onDrop={handleTrailingDrop}
+          aria-hidden="true"
+          className={cn(
+            'min-w-8 flex-1',
+            draggingId !== null && trailingZoneActive && 'bg-accent/10',
+          )}
+        />
+      </div>
+
+      {overflowTabs.length > 0 && (
+        <div className="relative shrink-0 border-l border-line">
+          <button
+            ref={menuToggleRef}
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className={cn(
+              'flex h-full items-center gap-1 px-3 text-sm',
+              activeIsOverflowed ? 'text-fg' : 'text-fg-muted hover:text-fg',
+            )}
+          >
+            <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">More</span>
+            <span className="rounded bg-surface-sunken px-1 text-[10px]">
+              {overflowTabs.length}
+            </span>
+          </button>
+
+          {menuOpen && (
+            <ul
+              ref={menuRef}
+              role="menu"
+              onKeyDown={handleMenuKeyDown}
+              className="absolute right-0 z-50 mt-0.5 max-h-80 w-64 overflow-y-auto rounded-b border border-line bg-surface-raised py-1 shadow-xl dx-scrollbar"
+            >
+              {overflowTabs.map((tab) => {
+                const Icon = tab.icon;
+                const isPinned = pinnedTabs.includes(tab.id);
+                const isBeingDragged = draggingId === tab.id;
+                return (
+                  <li
+                    key={tab.id}
+                    role="none"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, tab.id)}
+                    onDragEnd={handleDragEnd}
+                    className={cn('flex items-center', isBeingDragged && 'opacity-40')}
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setMenuOpen(false);
+                      }}
+                      className={cn(
+                        'flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm',
+                        tab.id === activeTab
+                          ? 'text-fg'
+                          : 'text-fg-muted hover:bg-surface hover:text-fg',
+                      )}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{tab.label}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePromoteToBar(tab.id)}
+                      aria-label={`Add ${tab.label} to tab bar`}
+                      title="Add to tab bar"
+                      className="rounded p-1 text-fg-subtle hover:bg-surface hover:text-fg"
+                    >
+                      <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePinTab(tab.id)}
+                      aria-label={isPinned ? `Unpin ${tab.label}` : `Pin ${tab.label}`}
+                      className="mr-1 rounded p-1 text-fg-subtle hover:bg-surface hover:text-fg"
+                    >
+                      {isPinned ? (
+                        <PinOff className="h-3.5 w-3.5" aria-hidden="true" />
+                      ) : (
+                        <Pin className="h-3.5 w-3.5" aria-hidden="true" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const TAB_COUNT = TABS.length;

@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Semantic design tokens.
+ *
+ * `:root` defines the light theme; `.dark` overrides the same names. Components
+ * only ever reference the semantic Tailwind colours built from these (bg-surface,
+ * text-fg-muted, border-line, ...), so both themes work natively and no override
+ * stylesheet — and no `!important` — is needed anywhere.
+ *
+ * Values are space-separated RGB channels so Tailwind's alpha modifiers work.
+ */
+@layer base {
+  :root {
+    --dx-canvas: 249 250 251;
+    --dx-surface: 255 255 255;
+    --dx-surface-raised: 255 255 255;
+    --dx-surface-sunken: 243 244 246;
+
+    --dx-line: 229 231 235;
+    --dx-line-strong: 209 213 219;
+
+    --dx-fg: 17 24 39;
+    --dx-fg-muted: 75 85 99;
+    --dx-fg-subtle: 107 114 128;
+
+    --dx-accent: 219 39 119;
+    --dx-accent-hover: 190 24 93;
+    --dx-accent-soft: 252 231 243;
+    --dx-on-accent: 255 255 255;
+
+    --dx-danger: 185 28 28;
+    --dx-danger-soft: 254 226 226;
+    --dx-warning: 180 83 9;
+    --dx-warning-soft: 254 243 199;
+    --dx-success: 21 128 61;
+    --dx-success-soft: 220 252 231;
+
+    --dx-overlay: 17 24 39;
+
+    /* Consumed by src/utils/monacoThemes.ts so editor chrome cannot drift
+       from app chrome. */
+    --dx-editor-bg: 255 255 255;
+    --dx-editor-gutter: 249 250 251;
+  }
+
+  .dark {
+    --dx-canvas: 17 24 39;
+    --dx-surface: 31 41 55;
+    --dx-surface-raised: 55 65 81;
+    --dx-surface-sunken: 17 24 39;
+
+    --dx-line: 55 65 81;
+    --dx-line-strong: 75 85 99;
+
+    --dx-fg: 243 244 246;
+    --dx-fg-muted: 156 163 175;
+    --dx-fg-subtle: 107 114 128;
+
+    --dx-accent: 244 114 182;
+    --dx-accent-hover: 249 168 212;
+    --dx-accent-soft: 80 7 36;
+    --dx-on-accent: 17 24 39;
+
+    --dx-danger: 248 113 113;
+    --dx-danger-soft: 69 10 10;
+    --dx-warning: 251 191 36;
+    --dx-warning-soft: 69 26 3;
+    --dx-success: 74 222 128;
+    --dx-success-soft: 5 46 22;
+
+    --dx-overlay: 0 0 0;
+
+    --dx-editor-bg: 31 41 55;
+    --dx-editor-gutter: 17 24 39;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-fg antialiased;
+  }
+
+  /* No global transition on html/body/#root: theme switches would smear the whole
+     page. Transitions are scoped to interactive elements only. */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role='tab'],
+  [role='option'] {
+    transition-property: color, background-color, border-color, opacity, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Same selector list, later in the cascade: neutralises the transitions above
+     at equal specificity, so no `!important` is required. Animated components
+     opt out individually with Tailwind's `motion-reduce:` variants. */
+  @media (prefers-reduced-motion: reduce) {
+    button,
+    a,
+    input,
+    select,
+    textarea,
+    [role='tab'],
+    [role='option'] {
+      transition-duration: 0ms;
+    }
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
+}
+
+@layer components {
+  /* 100vh leaves a gap under mobile browser chrome; dvh tracks the visible
+     viewport. Declared here rather than overriding a Tailwind utility. */
+  .dx-app-shell {
+    height: 100vh;
+  }
+
+  @supports (height: 100dvh) {
+    .dx-app-shell {
+      height: 100dvh;
+    }
+  }
+
+  .dx-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--dx-line-strong)) transparent;
+  }
+
+  .dx-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  .dx-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dx-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--dx-line-strong));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  /* Minimal styling for sanitized Markdown output — everything here is a
+     standard HTML5 tag DOMPurify's default allowlist can produce. */
+  .dx-markdown-preview :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: 600;
+    margin: 1em 0 0.4em;
+    line-height: 1.25;
+  }
+  .dx-markdown-preview h1 { font-size: 1.5em; }
+  .dx-markdown-preview h2 { font-size: 1.25em; }
+  .dx-markdown-preview h3 { font-size: 1.1em; }
+  .dx-markdown-preview p { margin: 0.6em 0; line-height: 1.6; }
+  .dx-markdown-preview a { color: rgb(var(--dx-accent)); text-decoration: underline; }
+  .dx-markdown-preview :is(ul, ol) { margin: 0.6em 0; padding-left: 1.5em; }
+  .dx-markdown-preview li { margin: 0.15em 0; }
+  .dx-markdown-preview blockquote {
+    margin: 0.6em 0;
+    padding-left: 0.75em;
+    border-left: 3px solid rgb(var(--dx-line-strong));
+    color: rgb(var(--dx-fg-muted));
+  }
+  .dx-markdown-preview code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: rgb(var(--dx-surface-sunken));
+    border-radius: 3px;
+    padding: 0.1em 0.35em;
+    font-size: 0.9em;
+  }
+  .dx-markdown-preview pre {
+    background: rgb(var(--dx-surface-sunken));
+    border: 1px solid rgb(var(--dx-line));
+    border-radius: 6px;
+    padding: 0.75em;
+    overflow-x: auto;
+    margin: 0.6em 0;
+  }
+  .dx-markdown-preview pre code { background: none; padding: 0; }
+  .dx-markdown-preview table {
+    border-collapse: collapse;
+    margin: 0.6em 0;
+    display: block;
+    overflow-x: auto;
+  }
+  .dx-markdown-preview :is(th, td) {
+    border: 1px solid rgb(var(--dx-line));
+    padding: 0.35em 0.6em;
+    text-align: left;
+  }
+  .dx-markdown-preview th { background: rgb(var(--dx-surface-sunken)); }
+  .dx-markdown-preview img { max-width: 100%; border-radius: 4px; }
+  .dx-markdown-preview hr { border: none; border-top: 1px solid rgb(var(--dx-line)); margin: 1em 0; }
+}

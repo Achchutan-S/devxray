@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#111827" />
+    <meta
+      name="description"
+      content="Dev X-Ray — a browser-first developer toolkit. Format, decode, convert and inspect, entirely on your machine."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.svg" />
+    <title>Dev X-Ray</title>
+    <script>
+      /* Applies the stored theme before first paint to avoid a flash of the wrong
+         theme. Mirrors readStoredTheme()/applyTheme() in src/utils/theme.ts, which
+         remains the source of truth once the app has booted. */
+      (function () {
+        try {
+          var raw = localStorage.getItem('devxray_preferences');
+          var theme = raw ? JSON.parse(raw).state.theme : 'dark';
+          if (theme !== 'light') theme = 'dark';
+          document.documentElement.classList.toggle('dark', theme === 'dark');
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        } catch (_) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

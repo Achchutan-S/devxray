@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 512 512" role="img" aria-label="Dev X-Ray">
+  <rect width="512" height="512" rx="112" fill="#111827"/>
+  <g stroke="#f472b6" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M188 176 108 256l80 80"/>
+    <path d="M324 176l80 80-80 80"/>
+  </g>
+  <path d="M286 148l-60 216" stroke="#9ca3af" stroke-width="22" stroke-linecap="round"/>
+  <rect x="96" y="244" width="320" height="24" rx="12" fill="#f472b6" opacity="0.22"/>
+</svg>
