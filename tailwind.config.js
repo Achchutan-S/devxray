@@ -36,6 +36,13 @@ export default {
           soft: token('accent-soft'),
           on: token('on-accent'),
         },
+        /** Court green in Clay, championship purple in Grass. Identity, not the default button. */
+        secondary: {
+          DEFAULT: token('secondary'),
+          soft: token('secondary-soft'),
+        },
+        /** The painted court marking: chalk in Clay, court green in Grass. */
+        'court-line': token('court-line'),
         danger: {
           DEFAULT: token('danger'),
           soft: token('danger-soft'),
@@ -47,6 +54,10 @@ export default {
         success: {
           DEFAULT: token('success'),
           soft: token('success-soft'),
+        },
+        info: {
+          DEFAULT: token('info'),
+          soft: token('info-soft'),
         },
         overlay: token('overlay'),
       },

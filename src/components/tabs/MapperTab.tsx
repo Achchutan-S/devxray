@@ -43,9 +43,14 @@ const STATUS_OPTIONS: readonly { id: MappingStatus; label: string }[] = [
   { id: 'verified', label: 'Verified' },
 ];
 
+/**
+ * Status uses the semantic state colours, not the accent: the accent is the
+ * primary-action colour, and a "found" row reading in the same colour as the
+ * Scan button made a state look like something to click.
+ */
 const STATUS_BADGE: Record<MappingStatus, string> = {
   verified: 'bg-success-soft text-success',
-  found: 'bg-accent-soft text-accent',
+  found: 'bg-info-soft text-info',
   'needs-review': 'bg-warning-soft text-warning',
   unmapped: 'bg-danger-soft text-danger',
   new: 'bg-surface-sunken text-fg-muted',

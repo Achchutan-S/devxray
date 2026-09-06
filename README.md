@@ -10,12 +10,14 @@ A browser-first developer toolkit. Format, decode, convert and inspect the thing
 you deal with every day — GraphQL, JSON, YAML, SQL, JWTs, cron expressions — without
 any of it leaving your machine.
 
-> **Status: Phase 4 complete — 18 of 23 tools implemented.**
-> The foundation is in place, and GraphQL, JSON, Diff, cURL, Types, YAML, SQL, XML,
-> URL, JWT, Base64, Hash, UUID, Mock, CSV, Markdown, Mapper and History are working,
-> along with share links, drag-to-promote tab bar management, and a history log that
-> several tools now actually write to. The remaining 5 tools are registered and
-> navigable but still render a shared placeholder. See [Roadmap](#roadmap).
+> **Status: Phase 6 complete — 23 of 23 tools implemented.**
+> Every tool in the toolkit works end to end, including Regex, Timestamp, Case,
+> Color and Cron. Phase 6 was a release-hardening pass rather than new tools: it
+> exercised the whole app as a real developer would, hardened share links and file
+> drops against malformed input, and closed a handful of consistency and safety
+> gaps (a destructive action reachable without its confirmation, duplicate
+> success toasts on file drop, silent share-link failures). See
+> [Roadmap](#roadmap) and [ARCHITECTURE.md](ARCHITECTURE.md) for the details.
 
 ## Why it exists
 
@@ -28,21 +30,29 @@ Installed as a PWA, it works with the network off.
 
 A tool's "Share" button copies a link with its state compressed into the URL hash
 (`#/{tool}/{compressed}`) — nothing is uploaded, and the link only works because the
-receiving browser decodes the hash itself. Currently wired into URL, JWT, Base64,
-UUID and Mock; other tools can be connected to the same `shareState` utility as they
-come up.
+receiving browser decodes the hash itself. Wired into URL, JWT, Base64, UUID, Mock,
+Regex, Case, Color and Cron; other tools can be connected to the same `shareState`
+utility as they come up. (Timestamp has no Share button by design — a shared
+"point in time" is already fully expressed by pasting the value itself.) A hash
+that fails to decode, or names a tool id that no longer exists, is rejected
+safely with a `toast.error` rather than failing silently or loading a broken
+state.
 
 ## History
 
-Format, Generate, Parse, Copy and Scan actions in JSON, Mock, CSV, Markdown, Hash,
-Base64 and Mapper are recorded to a local history log — search it, restore a plain-
-text tool's input, delete an entry, or clear it out entirely. JWT is deliberately
-excluded: a history entry persists to `localStorage`, and storing a raw token there
-would undercut the tool's own promise never to log it. Restore fully repopulates
-JSON, Hash, Base64, CSV and Markdown; for Mapper and Mock Data, whose real state
-(mapping rows, a typed schema) has no plain-text representation to restore from, it
-switches to the tool and says so rather than pretending to restore something it
-can't.
+One clear, deliberate action per tool — never a keystroke — is recorded to a local
+history log: Format (JSON), Generate (Mock), Parse (CSV), Copy (Markdown, Hash,
+Base64, Case, Color), Scan & Build Mapping (Mapper), Replace (Regex), Convert/Now
+(Timestamp) and Copy description (Cron). Search it, restore
+a plain-text tool's input, delete an entry, or clear it out entirely — the "Clear
+all" action requires confirming twice regardless of whether it's triggered from the
+button or the command palette, since a bypassable confirmation on an action this
+destructive isn't a confirmation at all. JWT is deliberately excluded: a history
+entry persists to `localStorage`, and storing a raw token there would undercut the
+tool's own promise never to log it. Restore fully repopulates JSON, Hash, Base64,
+CSV and Markdown; for Regex, Timestamp, Case, Color, Cron, Mapper and Mock Data it
+switches to the tool and says restoring input isn't supported there yet, rather
+than pretending to restore something it can't.
 
 ## Privacy model
 
@@ -94,9 +104,10 @@ rather than a subpath unless you adjust both.
 ## PWA behaviour
 
 - **Installable** via the browser's native install affordance.
-- **Offline capable.** All 60 unique build assets are precached (≈5.2 MB, 87% of the
-  6 MB ceiling), including the Monaco chunk, both editor workers, and Monaco's icon
-  font. The editor works with the network off.
+- **Offline capable.** All 66 unique build assets are precached (≈5.3 MB, 88% of the
+  6 MB ceiling), including the Monaco chunk, both editor workers (plus the Regex
+  tool's own Web Worker), and Monaco's icon font. The editor works with the network
+  off.
 - **Updates are offered, never forced.** The service worker registers with
   `registerType: 'prompt'`. When a new version is detected the app shows a toast with
   *Reload* and *Later*; nothing swaps underneath you mid-edit. Registered clients
@@ -124,15 +135,14 @@ deliberately steps aside when focus is in a text surface.
 
 | Category | Tools |
 |---|---|
-| Formatters | **GraphQL**, **JSON**, **Types**, **YAML**, **XML**, **SQL** |
-| Encoding & security | **URL**, **cURL**, **JWT**, **Base64**, **Hash**, **UUID** |
-| Utilities | **Diff**, Regex, Timestamp, Case, Color, Cron, **Mock**, **CSV**, **Markdown** |
-| Management | **Mapper**, **History** |
+| Formatters | GraphQL, JSON, Types, YAML, XML, SQL |
+| Encoding & security | URL, cURL, JWT, Base64, Hash, UUID |
+| Utilities | Diff, Regex, Timestamp, Case, Color, Cron, Mock, CSV, Markdown |
+| Management | Mapper, History |
 
-**Bold** tools are implemented. The rest are registered and navigable, and render a
-placeholder until their phase.
+All 23 are implemented.
 
-### What the implemented tools do
+### What each tool does
 
 - **GraphQL** — formats via Prettier, analyses depth/fields/arguments on a real AST,
   filters the query down to selected fields, extracts inline literals into variables,
@@ -181,7 +191,32 @@ placeholder until their phase.
   overlap, none) — no AI, no opaque scoring. Review, filter, bulk-verify, import or
   export the result as JSON or Markdown; state persists locally under its own key.
 - **History** — search, restore, delete or clear a log of meaningful operations from
-  seven other tools. See [History](#history) above.
+  twelve other tools. See [History](#history) above.
+- **Regex** — tests a pattern against a string with up to 10 highlighted matches,
+  capture groups, and native `$&`/`$1`/`` $` ``/`$'` replacement tokens. Syntax is
+  validated synchronously on the main thread (a `RegExp` constructor can never
+  hang), while actually running the pattern happens in a Web Worker with a 2.5s
+  timeout — the only way to interrupt catastrophic backtracking, since JavaScript
+  cannot preempt itself mid-`exec`.
+- **Timestamp** — converts between Unix seconds/milliseconds, ISO strings, and 17
+  timezones via `Intl.DateTimeFormat`, with a live UTC clock. Never turns
+  unparseable input into a "valid" date: a bare `new Date(text)` call would
+  otherwise let V8's legacy parser silently misread garbage text as a date far in
+  the future, so a parsed date-string result outside a sane 4-digit year is
+  rejected rather than shown.
+- **Case** — converts between camelCase, snake_case, kebab-case, PascalCase,
+  SCREAMING_CASE, Title Case, dot.case, path/case, lowercase and UPPERCASE, with an
+  acronym-aware tokenizer (`XMLParser` → `XML`, `Parser`, not four separate
+  letters).
+- **Color** — converts between HEX, RGB, HSL and OKLCH, and reports a WCAG AA/AAA
+  contrast ratio for any text/background pair. OKLCH conversion and the contrast
+  formula are both hand-rolled from their published reference math rather than a
+  dependency, sized to exactly the handful of conversions this tool needs.
+- **Cron** — explains a 5- or 6-field cron expression in plain English (via
+  `cronstrue`) and lists its next 10 run times through a hand-written,
+  field-by-field search — never a per-second scan — that follows standard Vixie
+  day-of-month/day-of-week semantics and terminates immediately for an impossible
+  schedule.
 
 ## Roadmap
 
@@ -191,9 +226,12 @@ placeholder until their phase.
 | 2 | GraphQL, JSON, Diff, cURL, Types, YAML, SQL, XML | **Done** |
 | 3 | URL, JWT, Base64, Hash, UUID; share links; tab bar promotion | **Done** |
 | 4 | Mock, CSV, Markdown, Mapper, History; history log wired into 7 tools | **Done** |
-| 5 | Regex, Timestamp, Case, Color, Cron | Not started |
-| 6 | Undo/redo, drafts, graph visualisation | Not started |
+| 5 | Regex, Timestamp, Case, Color, Cron — the final 5 tools, 23/23 complete | **Done** |
+| 6 | Release hardening: real-world QA across all 23 tools, share-link and file-drop safety, destructive-action consistency, keyboard/ARIA fixes | **Done** |
 | 7 | BYOK AI assistant | Not started |
+
+Broader undo/redo (currently JSON, GraphQL and XML only), drafts, and a graph
+visualisation view remain unscheduled ideas rather than a committed phase.
 
 ## Project structure
 
@@ -212,7 +250,7 @@ src/
     ├── formatters/ One pure module per tool: parse, analyse, transform
     ├── mapper/     Path flattening, the suggestion engine, row lifecycle, import/export
     └── monaco/     Monaco bootstrap: local bundling, workers, language subset
-workers/            Off-main-thread JSON parsing
+workers/            Off-main-thread JSON parsing and regex execution
 ```
 
 Each tool's parser is imported only by that tool, so opening YAML does not download

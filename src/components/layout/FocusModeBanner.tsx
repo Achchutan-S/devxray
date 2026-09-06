@@ -9,7 +9,9 @@ export function FocusModeBanner() {
   const tab = getTab(activeTab);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-2 z-banner flex justify-center px-3">
+    // Anchored to the bottom: at the top it sat directly over the tool's own
+    // toolbar, hiding the controls focus mode exists to make room for.
+    <div className="pointer-events-none fixed inset-x-0 bottom-8 z-banner flex justify-center px-3">
       <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-line bg-surface-raised/95 px-3 py-1.5 text-xs text-fg-muted shadow-lg backdrop-blur">
         <span className="font-medium text-fg">{tab?.label ?? 'Focus mode'}</span>
         <span className="hidden sm:inline">

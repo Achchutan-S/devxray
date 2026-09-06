@@ -13,12 +13,15 @@ interface PreferenceState {
   tabOrder: string[];
   /** Last tab the user was on, restored on reload. */
   lastActiveTab: string | null;
+  /** Collapsed state of the navigation's contextual tool panel. */
+  navPanelCollapsed: boolean;
 
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   togglePinTab: (tabId: string) => void;
   setTabOrder: (order: string[]) => void;
   setLastActiveTab: (tabId: string) => void;
+  setNavPanelCollapsed: (collapsed: boolean) => void;
   resetTabLayout: () => void;
 }
 
@@ -44,6 +47,7 @@ export const usePreferenceStore = create<PreferenceState>()(
       pinnedTabs: [],
       tabOrder: [],
       lastActiveTab: null,
+      navPanelCollapsed: false,
 
       setTheme: (theme) => {
         syncTheme(theme);
@@ -65,6 +69,7 @@ export const usePreferenceStore = create<PreferenceState>()(
 
       setTabOrder: (order) => set({ tabOrder: order }),
       setLastActiveTab: (tabId) => set({ lastActiveTab: tabId }),
+      setNavPanelCollapsed: (collapsed) => set({ navPanelCollapsed: collapsed }),
       resetTabLayout: () => set({ pinnedTabs: [], tabOrder: [] }),
     }),
     {

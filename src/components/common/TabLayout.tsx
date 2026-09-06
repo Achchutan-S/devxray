@@ -70,7 +70,7 @@ export function PaneHeader({ title, actions, className }: PaneHeaderProps) {
         className,
       )}
     >
-      <div className="min-w-0 truncate text-xs font-medium uppercase tracking-wide text-fg-muted">
+      <div className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.13em] text-fg-muted">
         {title}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}

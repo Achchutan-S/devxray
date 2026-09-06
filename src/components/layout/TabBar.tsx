@@ -71,6 +71,9 @@ function TabButton({
 
   return (
     <div
+      // Presentational: a tablist must own its tabs directly, and this wrapper
+      // exists only to carry the drag handlers and the pin affordance.
+      role="presentation"
       draggable={draggable}
       onDragStart={(e) => onDragStart?.(e, tabId)}
       onDragEnd={onDragEnd}
@@ -86,10 +89,13 @@ function TabButton({
         title={tab.description}
         onClick={() => onSelect(tabId)}
         className={cn(
-          'flex items-center gap-1.5 border-b-2 py-2 pl-3 pr-7 text-sm whitespace-nowrap',
+          // The active tab is lifted onto the working surface and marked with a
+          // painted court line — chalk on clay, court green on grass — rather
+          // than a default-looking 1px accent underline.
+          'flex items-center gap-1.5 border-t-[3px] py-2 pl-3 pr-7 text-sm whitespace-nowrap',
           isActive
-            ? 'border-accent text-fg'
-            : 'border-transparent text-fg-muted hover:text-fg',
+            ? 'border-court-line bg-surface text-fg'
+            : 'border-transparent text-fg-muted hover:bg-surface/60 hover:text-fg',
         )}
       >
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -102,9 +108,11 @@ function TabButton({
         aria-label={isPinned ? `Unpin ${tab.label}` : `Pin ${tab.label}`}
         title={isPinned ? 'Unpin' : 'Pin'}
         className={cn(
-          'absolute right-1 rounded p-0.5 text-fg-subtle hover:bg-surface-raised hover:text-fg',
+          'absolute right-1 rounded p-0.5 hover:bg-surface-raised hover:text-fg',
           // Pinned state stays visible; the rest reveal on hover or keyboard focus.
-          isPinned ? 'opacity-100' : 'opacity-0 focus:opacity-100 group-hover:opacity-100',
+          // Pinned uses the secondary identity colour rather than the accent, so
+          // "kept here" never reads as "this is the active tool".
+          isPinned ? 'text-secondary opacity-100' : 'text-fg-subtle opacity-0 focus:opacity-100 group-hover:opacity-100',
         )}
       >
         {isPinned ? (
@@ -250,10 +258,10 @@ export function TabBar() {
   return (
     <div
       role="tablist"
-      aria-label="Tools"
-      className="relative flex shrink-0 items-stretch border-b border-line bg-surface"
+      aria-label="Open tools"
+      className="relative flex shrink-0 items-stretch border-b border-line bg-canvas"
     >
-      <div className="flex min-w-0 flex-1 items-stretch overflow-x-auto dx-scrollbar">
+      <div role="presentation" className="flex min-w-0 flex-1 items-stretch overflow-x-auto dx-scrollbar">
         {layout.pinned.map((id) => (
           <TabButton
             key={id}
@@ -301,7 +309,7 @@ export function TabBar() {
       </div>
 
       {overflowTabs.length > 0 && (
-        <div className="relative shrink-0 border-l border-line">
+        <div role="presentation" className="relative shrink-0 border-l border-line">
           <button
             ref={menuToggleRef}
             type="button"

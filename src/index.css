@@ -3,78 +3,126 @@
 @tailwind utilities;
 
 /**
- * Semantic design tokens.
+ * Semantic design tokens — two first-class environments.
  *
- * `:root` defines the light theme; `.dark` overrides the same names. Components
- * only ever reference the semantic Tailwind colours built from these (bg-surface,
- * text-fg-muted, border-line, ...), so both themes work natively and no override
- * stylesheet — and no `!important` — is needed anywhere.
+ * `:root` is GRASS (light): a Wimbledon-inspired grass court — warm off-white
+ * outer environment, white working surfaces, pale grass panels, deep green as
+ * the primary action colour and a restrained purple as the identity accent.
+ *
+ * `.dark` is CLAY: a Roland-Garros-inspired clay court — the whole environment
+ * carries a warm terracotta undertone rather than being black with an orange
+ * button, with a court green as the restrained secondary identity colour.
+ *
+ * Components only ever reference the semantic Tailwind colours built from these
+ * (bg-surface, text-fg-muted, border-line, ...), so both themes work natively
+ * and no override stylesheet — and no `!important` — is needed anywhere.
  *
  * Values are space-separated RGB channels so Tailwind's alpha modifiers work.
+ * Foreground/accent pairs are chosen for WCAG AA against the surface they sit
+ * on; where a tennis colour would have failed, contrast won.
  */
 @layer base {
   :root {
-    --dx-canvas: 249 250 251;
+    /**
+     * GRASS — deep bottle green, aubergine purple, cream. The four bands below
+     * are deliberately separated in luminance so the environment still reads as
+     * layered with all text removed: green-cast cream canvas → white shell →
+     * ivory elevated layer → white editor.
+     */
+    --dx-canvas: 235 240 226;
     --dx-surface: 255 255 255;
-    --dx-surface-raised: 255 255 255;
-    --dx-surface-sunken: 243 244 246;
+    --dx-surface-raised: 250 246 236;
+    --dx-surface-sunken: 241 245 234;
 
-    --dx-line: 229 231 235;
-    --dx-line-strong: 209 213 219;
+    --dx-line: 211 221 203;
+    --dx-line-strong: 137 153 133;
 
-    --dx-fg: 17 24 39;
-    --dx-fg-muted: 75 85 99;
-    --dx-fg-subtle: 107 114 128;
+    --dx-fg: 21 32 26;
+    --dx-fg-muted: 83 99 90;
+    --dx-fg-subtle: 96 110 99;
 
-    --dx-accent: 219 39 119;
-    --dx-accent-hover: 190 24 93;
-    --dx-accent-soft: 252 231 243;
+    /* Deep bottle green, not a kelly/emerald SaaS green. */
+    --dx-accent: 10 92 64;
+    --dx-accent-hover: 8 74 52;
+    --dx-accent-soft: 220 234 225;
     --dx-on-accent: 255 255 255;
 
-    --dx-danger: 185 28 28;
-    --dx-danger-soft: 254 226 226;
-    --dx-warning: 180 83 9;
-    --dx-warning-soft: 254 243 199;
-    --dx-success: 21 128 61;
-    --dx-success-soft: 220 252 231;
+    /* Aubergine purple: brand mark detail and one status tier. Nothing else. */
+    --dx-secondary: 84 18 110;
+    --dx-secondary-soft: 238 226 244;
 
-    --dx-overlay: 17 24 39;
+    /**
+     * The painted court marking. On grass the line is white — but a cream line
+     * on a white panel is invisible, so in this theme the marking takes the
+     * court's own green and the white surface plays the role of the line.
+     */
+    --dx-court-line: 10 92 64;
+
+    --dx-danger: 168 30 20;
+    --dx-danger-soft: 251 228 225;
+    --dx-warning: 126 82 0;
+    --dx-warning-soft: 251 239 216;
+    --dx-success: 15 97 53;
+    --dx-success-soft: 223 239 227;
+    --dx-info: 14 82 115;
+    --dx-info-soft: 223 235 243;
+
+    --dx-overlay: 21 32 26;
 
     /* Consumed by src/utils/monacoThemes.ts so editor chrome cannot drift
-       from app chrome. */
+       from app chrome. Pure white here: code wants clarity, not warmth. */
     --dx-editor-bg: 255 255 255;
-    --dx-editor-gutter: 249 250 251;
+    --dx-editor-gutter: 247 250 243;
   }
 
   .dark {
-    --dx-canvas: 17 24 39;
-    --dx-surface: 31 41 55;
-    --dx-surface-raised: 55 65 81;
-    --dx-surface-sunken: 17 24 39;
+    /**
+     * CLAY — brick-orange court, chalk lines, deep green surrounds. The canvas
+     * is the most saturated band (the court at dusk); each layer above it steps
+     * lighter and more neutral, and the editor drops back to near-black.
+     */
+    --dx-canvas: 30 19 16;
+    --dx-surface: 43 28 21;
+    --dx-surface-raised: 58 40 32;
+    --dx-surface-sunken: 22 14 11;
 
-    --dx-line: 55 65 81;
-    --dx-line-strong: 75 85 99;
+    --dx-line: 76 51 39;
+    --dx-line-strong: 145 102 75;
 
-    --dx-fg: 243 244 246;
-    --dx-fg-muted: 156 163 175;
-    --dx-fg-subtle: 107 114 128;
+    --dx-fg: 243 232 217;
+    --dx-fg-muted: 192 172 151;
+    --dx-fg-subtle: 156 136 115;
 
-    --dx-accent: 244 114 182;
-    --dx-accent-hover: 249 168 212;
-    --dx-accent-soft: 80 7 36;
-    --dx-on-accent: 17 24 39;
+    /* Clay orange. Its text is dark, because clay bright enough to read as
+       clay is never dark enough to carry white text at AA. */
+    --dx-accent: 216 112 62;
+    --dx-accent-hover: 226 128 80;
+    --dx-accent-soft: 47 22 15;
+    --dx-on-accent: 30 19 16;
 
-    --dx-danger: 248 113 113;
-    --dx-danger-soft: 69 10 10;
-    --dx-warning: 251 191 36;
-    --dx-warning-soft: 69 26 3;
-    --dx-success: 74 222 128;
-    --dx-success-soft: 5 46 22;
+    /* The green of the surrounds, not a mint: muted, slightly grey foliage. */
+    --dx-secondary: 127 169 133;
+    --dx-secondary-soft: 35 53 40;
 
-    --dx-overlay: 0 0 0;
+    /* Chalky off-white — the painted baseline. Never pure white, which would
+       read cold against the clay. */
+    --dx-court-line: 232 220 200;
 
-    --dx-editor-bg: 31 41 55;
-    --dx-editor-gutter: 17 24 39;
+    --dx-danger: 239 123 108;
+    --dx-danger-soft: 74 29 24;
+    --dx-warning: 229 183 92;
+    --dx-warning-soft: 69 51 20;
+    --dx-success: 121 190 140;
+    --dx-success-soft: 30 58 40;
+    --dx-info: 143 182 206;
+    --dx-info-soft: 29 47 58;
+
+    --dx-overlay: 12 7 5;
+
+    /* Near-black with only the faintest warm undertone, so the editor still
+       belongs to the same room without compromising code contrast. */
+    --dx-editor-bg: 19 12 10;
+    --dx-editor-gutter: 26 17 14;
   }
 
   html,
@@ -126,6 +174,16 @@
      viewport. Declared here rather than overriding a Tailwind utility. */
   .dx-app-shell {
     height: 100vh;
+    /* The environment participates in the theme rather than being a flat slab
+       the app floats on: a low-alpha wash of the court's own colour settling
+       toward the bottom, the way light falls on a surface. Pure CSS — no
+       image, no bundle cost. */
+    background-color: rgb(var(--dx-canvas));
+    background-image: linear-gradient(
+      180deg,
+      rgb(var(--dx-accent) / 0.07) 0%,
+      transparent 26%
+    );
   }
 
   @supports (height: 100dvh) {

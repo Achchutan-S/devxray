@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 
 export type Theme = 'light' | 'dark';
 
-export type TabCategory = 'format' | 'encode' | 'utility' | 'manage';
+export type TabCategory = 'format' | 'encode' | 'utility' | 'data' | 'manage';
 
 export interface TabDefinition {
   readonly id: string;
