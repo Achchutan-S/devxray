@@ -11,7 +11,8 @@ import {
 import { FocusModeBanner, Header, TabBar, ToolNav, ToolNavDrawer } from '@/components/layout';
 import { TAB_COMPONENTS } from '@/components/tabs';
 import { TAB_IDS, getTab } from '@/constants/tabs';
-import { useHotkeyManager, useImportShareLink } from '@/hooks';
+import { useHotkeyManager, useImportShareLink, useRouter } from '@/hooks';
+import { CONTENT_PAGES } from '@/components/pages';
 import { usePreferenceStore, useUIStore } from '@/store';
 import { computeTabLayout, tabIdForHotkeyIndex } from '@/utils/tabUtils';
 
@@ -63,6 +64,7 @@ export function App() {
   const handleCloseNav = useCallback(() => setNavOpen(false), []);
 
   useImportShareLink(setActiveTab);
+  const { page, navigateToPage, navigateHome } = useRouter();
 
   useHotkeyManager({
     onToggleTheme: handleToggleTheme,
@@ -75,6 +77,7 @@ export function App() {
   });
 
   const ActiveTabComponent = TAB_COMPONENTS[activeTab];
+  const ContentPage = page !== null ? CONTENT_PAGES[page] : null;
   const tabMeta = getTab(activeTab);
 
   return (
@@ -85,13 +88,19 @@ export function App() {
             onOpenPalette={handleOpenPalette}
             onOpenShortcuts={handleOpenShortcuts}
             onOpenNav={handleOpenNav}
+            onOpenPage={navigateToPage}
           />
         )}
 
         {focusMode && <FocusModeBanner />}
 
-        {/* Navigation sits beside the workspace, so the tab bar stays with the
-            thing it describes: what is currently open. */}
+        {ContentPage ? (
+          <Suspense fallback={<TabSkeleton />}>
+            <ContentPage onNavigate={navigateToPage} onBack={navigateHome} />
+          </Suspense>
+        ) : (
+        /* Navigation sits beside the workspace, so the tab bar stays with the
+           thing it describes: what is currently open. */
         <div className="flex min-h-0 min-w-0 flex-1">
           {!focusMode && <ToolNav />}
 
@@ -106,6 +115,9 @@ export function App() {
               aria-label={tabMeta?.label ?? 'Tool'}
               className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
             >
+              <h1 className="sr-only">
+                {tabMeta ? `${tabMeta.label} — ${tabMeta.description}` : 'Dev X-Ray'}
+              </h1>
               <TabErrorBoundary resetKey={activeTab}>
                 <Suspense fallback={<TabSkeleton />}>
                   {ActiveTabComponent ? <ActiveTabComponent /> : null}
@@ -114,6 +126,7 @@ export function App() {
             </main>
           </div>
         </div>
+        )}
       </div>
 
       <ToolNavDrawer isOpen={navOpen} onClose={handleCloseNav} />

@@ -1,5 +1,6 @@
-import { Keyboard, Maximize2, Menu, Moon, Search, Sun } from 'lucide-react';
+import { Keyboard, Maximize2, Menu, Moon, Search, ShieldCheck, Sun } from 'lucide-react';
 import { CATEGORY_LABELS, getTab } from '@/constants/tabs';
+import type { ContentPageId } from '@/constants/routes';
 import { renderShortcut } from '@/constants/shortcuts';
 import { usePreferenceStore, useUIStore } from '@/store';
 import { IconButton } from '@/components/common';
@@ -8,6 +9,7 @@ interface HeaderProps {
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
   onOpenNav: () => void;
+  onOpenPage: (pageId: ContentPageId) => void;
 }
 
 /**
@@ -31,7 +33,7 @@ function ScanMark() {
   );
 }
 
-export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav }: HeaderProps) {
+export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav, onOpenPage }: HeaderProps) {
   const theme = usePreferenceStore((state) => state.theme);
   const toggleTheme = usePreferenceStore((state) => state.toggleTheme);
   const activeTab = useUIStore((state) => state.activeTab);
@@ -60,9 +62,9 @@ export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav }: HeaderProp
             <ScanMark />
           </span>
         </span>
-        <h1 className="shrink-0 text-sm font-semibold tracking-tight text-fg">
+        <span className="shrink-0 text-sm font-semibold tracking-tight text-fg">
           Dev<span className="text-fg-muted"> </span>X-Ray
-        </h1>
+        </span>
         {tab ? (
           <>
             <span className="hidden h-4 w-px shrink-0 bg-line-strong sm:block" aria-hidden="true" />
@@ -90,6 +92,16 @@ export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav }: HeaderProp
           <kbd className="hidden rounded bg-secondary-soft px-1 font-mono text-[10px] font-semibold text-secondary md:inline">
             {renderShortcut('Mod+K')}
           </kbd>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenPage('privacy')}
+          title="Where your data goes"
+          className="hidden items-center gap-1.5 rounded border border-line px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-raised hover:text-fg md:inline-flex"
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+          <span className="hidden lg:inline">Privacy</span>
         </button>
 
         <IconButton

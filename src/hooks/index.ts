@@ -9,3 +9,4 @@ export type { FileDropCallback } from './useFileDropContext';
 export { useUndoRedo, cloneSnapshot, getStackLimit } from './useUndoRedo';
 export type { UndoRedo } from './useUndoRedo';
 export { useImportShareLink } from './useImportShareLink';
+export { useRouter } from './useRouter';

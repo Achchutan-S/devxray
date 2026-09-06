@@ -2,19 +2,20 @@
   "name": "dev-xray",
   "private": true,
   "version": "1.0.0",
-  "description": "Dev X-Ray — a browser-first developer productivity toolkit. Everything runs locally.",
+  "description": "Dev X-Ray \u2014 a browser-first developer productivity toolkit. Everything runs locally.",
   "type": "module",
   "engines": {
     "node": "^18.0.0 || >=20.0.0"
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview",
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prerender": "node scripts/prerender.mjs"
   },
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
