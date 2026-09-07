@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { Theme } from '@/types';
-import { STORAGE_KEYS } from '@/utils/constants';
+import { CONFIG, STORAGE_KEYS } from '@/utils/constants';
+import { TAB_IDS } from '@/constants/tabs';
+import { addTabToBar, applyTabOrder, defaultBarTabs, removeTabFromBar } from '@/utils/tabUtils';
 import { applyTheme, DEFAULT_THEME } from '@/utils/theme';
 import { applyMonacoTheme } from '@/utils/monacoThemes';
 
@@ -11,6 +13,11 @@ interface PreferenceState {
   pinnedTabs: string[];
   /** Explicit user ordering; ids absent from the registry are ignored on read. */
   tabOrder: string[];
+  /**
+   * The tools currently open in the tab bar. Explicit membership, so closing a
+   * tab actually shortens the bar instead of pulling the next tool in.
+   */
+  barTabs: string[];
   /** Last tab the user was on, restored on reload. */
   lastActiveTab: string | null;
   /** Collapsed state of the navigation's contextual tool panel. */
@@ -20,6 +27,9 @@ interface PreferenceState {
   toggleTheme: () => void;
   togglePinTab: (tabId: string) => void;
   setTabOrder: (order: string[]) => void;
+  openTabInBar: (tabId: string) => void;
+  closeTabInBar: (tabId: string) => void;
+  setBarTabs: (ids: string[]) => void;
   setLastActiveTab: (tabId: string) => void;
   setNavPanelCollapsed: (collapsed: boolean) => void;
   resetTabLayout: () => void;
@@ -46,6 +56,7 @@ export const usePreferenceStore = create<PreferenceState>()(
       theme: DEFAULT_THEME,
       pinnedTabs: [],
       tabOrder: [],
+      barTabs: defaultBarTabs(TAB_IDS),
       lastActiveTab: null,
       navPanelCollapsed: false,
 
@@ -61,21 +72,54 @@ export const usePreferenceStore = create<PreferenceState>()(
       },
 
       togglePinTab: (tabId) =>
-        set((state) => ({
-          pinnedTabs: state.pinnedTabs.includes(tabId)
-            ? state.pinnedTabs.filter((id) => id !== tabId)
-            : [...state.pinnedTabs, tabId],
-        })),
+        set((state) => {
+          const wasPinned = state.pinnedTabs.includes(tabId);
+          return {
+            pinnedTabs: wasPinned
+              ? state.pinnedTabs.filter((id) => id !== tabId)
+              : [...state.pinnedTabs, tabId],
+            // Pinning also opens it, so unpinning later leaves the tool in the
+            // bar rather than quietly exiling it to More.
+            barTabs: wasPinned ? state.barTabs : addTabToBar(state.barTabs, tabId),
+          };
+        }),
 
       setTabOrder: (order) => set({ tabOrder: order }),
+
+      openTabInBar: (tabId) =>
+        set((state) => ({ barTabs: addTabToBar(state.barTabs, tabId) })),
+
+      closeTabInBar: (tabId) =>
+        set((state) => ({ barTabs: removeTabFromBar(state.barTabs, tabId) })),
+
+      setBarTabs: (ids) => set({ barTabs: ids }),
       setLastActiveTab: (tabId) => set({ lastActiveTab: tabId }),
       setNavPanelCollapsed: (collapsed) => set({ navPanelCollapsed: collapsed }),
-      resetTabLayout: () => set({ pinnedTabs: [], tabOrder: [] }),
+      resetTabLayout: () =>
+        set({ pinnedTabs: [], tabOrder: [], barTabs: defaultBarTabs(TAB_IDS) }),
     }),
     {
       name: STORAGE_KEYS.preferences,
       storage: createJSONStorage(() => localStorage),
-      version: 1,
+      version: 2,
+      /**
+       * v1 had no `barTabs`: the bar was the first DEFAULT_BAR_TAB_COUNT
+       * unpinned tools in `tabOrder`. Seeding from that same rule means an
+       * existing user opens the app to exactly the bar they left behind, and
+       * only then starts controlling it directly.
+       */
+      migrate: (persisted, version) => {
+        const state = persisted as Partial<PreferenceState> | undefined;
+        if (state === undefined || version >= 2) return persisted;
+
+        const ordered = applyTabOrder(TAB_IDS, state.tabOrder ?? []);
+        const pinned = new Set(state.pinnedTabs ?? []);
+        const slots = Math.max(0, CONFIG.DEFAULT_BAR_TAB_COUNT - pinned.size);
+        return {
+          ...state,
+          barTabs: ordered.filter((id) => !pinned.has(id)).slice(0, slots),
+        };
+      },
       onRehydrateStorage: () => (state) => {
         // Re-apply after hydration so Monaco (which may not have existed when the
         // pre-React inline script ran) picks up the persisted theme.

@@ -48,6 +48,15 @@ export function tabForSlug(slug: string): string | undefined {
   return tab !== undefined && isValidTabId(tab) ? tab : undefined;
 }
 
+/**
+ * The application's base URL.
+ *
+ * Distinct from "back to the tools", which resolves to whichever tool is open.
+ * The brand mark navigates here: a home affordance that lands on the current
+ * tool is not a home affordance.
+ */
+export const HOME_PATH = '/';
+
 export function pathForTab(tabId: string): string {
   const slug = SLUG_BY_TAB[tabId];
   return slug === undefined ? '/' : `/${slug}`;

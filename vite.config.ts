@@ -14,8 +14,10 @@ export default defineConfig({
         short_name: 'DevXRay',
         description:
           'Browser-first developer toolkit: format, decode, convert and inspect — entirely on your machine.',
-        theme_color: '#111827',
-        background_color: '#111827',
+        // The Grass canvas (--dx-canvas, light). The previous #111827 matched
+        // neither theme and showed as the install splash and address-bar colour.
+        theme_color: '#ebf0e2',
+        background_color: '#ebf0e2',
         display: 'standalone',
         orientation: 'any',
         scope: '/',

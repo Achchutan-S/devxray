@@ -13,7 +13,8 @@ export const CONFIG = {
   MAX_HISTORY_CHARS: 8_000,
   /** Hard cap on stored history entries. */
   MAX_HISTORY_ENTRIES: 100,
-  /** Unpinned tabs shown in the bar before overflowing into the More menu. */
+  /** How many tools a first-time visitor finds open in the tab bar. From then
+      on the bar is whatever the user has left open, and is persisted. */
   DEFAULT_BAR_TAB_COUNT: 10,
   /** Undo entries kept per tool. */
   MAX_UNDO_STACK: 20,

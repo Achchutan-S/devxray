@@ -49,7 +49,12 @@ export const useUIStore = create<UIState>()((set) => ({
 
   setActiveTab: (tabId) => {
     if (!isValidTabId(tabId)) return;
-    usePreferenceStore.getState().setLastActiveTab(tabId);
+    // Opening a tool is what puts it in the bar — from the command palette, the
+    // tool panel, a share link, a dropped file or the More menu alike. That is
+    // what makes closing a tab meaningful: it stays gone until you open it again.
+    const prefs = usePreferenceStore.getState();
+    prefs.setLastActiveTab(tabId);
+    prefs.openTabInBar(tabId);
     set({ activeTab: tabId });
   },
 

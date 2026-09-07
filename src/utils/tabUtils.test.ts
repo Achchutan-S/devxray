@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addTabToBar,
   applyTabOrder,
   computeTabLayout,
+  defaultBarTabs,
   moveTabBeforeOrAfter,
   promoteTabToBar,
-  resolveBarDropSide,
+  removeTabFromBar,
   sideFromPointerX,
   tabIdForHotkeyIndex,
 } from './tabUtils';
@@ -27,135 +29,194 @@ describe('applyTabOrder', () => {
   });
 });
 
-describe('computeTabLayout', () => {
-  it('puts pinned tabs first and overflows the rest', () => {
-    const layout = computeTabLayout(IDS, ['d'], [], 3);
-    expect(layout.pinned).toEqual(['d']);
-    expect(layout.bar).toEqual(['a', 'b']);
-    expect(layout.overflow).toEqual(['c', 'e']);
+/** The bar as the user left it: a, b, c open; d, e behind More. */
+const OPEN = ['a', 'b', 'c'];
+
+describe('moveTabBeforeOrAfter', () => {
+  it('moves a tab before its target', () => {
+    expect(moveTabBeforeOrAfter(IDS, 'e', 'b', 'before')).toEqual(['a', 'e', 'b', 'c', 'd']);
   });
 
-  it('counts pinned tabs against the bar budget', () => {
-    const layout = computeTabLayout(IDS, ['a', 'b', 'c'], [], 3);
-    expect(layout.pinned).toEqual(['a', 'b', 'c']);
-    expect(layout.bar).toEqual([]);
+  it('moves a tab after its target', () => {
+    expect(moveTabBeforeOrAfter(IDS, 'a', 'c', 'after')).toEqual(['b', 'c', 'a', 'd', 'e']);
+  });
+
+  it('gives the same result whichever direction the drag came from', () => {
+    // Dropping on the same visual half of the same tab must always land the
+    // same way, so insertion is computed with the dragged id already removed.
+    const fromLeft = moveTabBeforeOrAfter(IDS, 'a', 'd', 'before');
+    const fromRight = moveTabBeforeOrAfter(['b', 'c', 'd', 'a', 'e'], 'a', 'd', 'before');
+    expect(fromLeft.indexOf('a')).toBe(fromLeft.indexOf('d') - 1);
+    expect(fromRight.indexOf('a')).toBe(fromRight.indexOf('d') - 1);
+  });
+
+  it('is a no-op when dropped on itself', () => {
+    expect(moveTabBeforeOrAfter(IDS, 'c', 'c', 'before')).toEqual(IDS);
+  });
+
+  it('is a no-op for an unknown tab', () => {
+    expect(moveTabBeforeOrAfter(IDS, 'ghost', 'b', 'after')).toEqual(IDS);
+    expect(moveTabBeforeOrAfter(IDS, 'a', 'ghost', 'after')).toEqual(IDS);
+  });
+
+  it('never drops or duplicates a tab', () => {
+    const next = moveTabBeforeOrAfter(IDS, 'e', 'a', 'before');
+    expect([...next].sort()).toEqual([...IDS].sort());
+    expect(new Set(next).size).toBe(next.length);
+  });
+});
+
+describe('computeTabLayout', () => {
+  it('shows exactly the tabs that are open, and hides the rest', () => {
+    const layout = computeTabLayout(IDS, [], [], OPEN);
+    expect(layout.bar).toEqual(['a', 'b', 'c']);
     expect(layout.overflow).toEqual(['d', 'e']);
   });
 
-  it('exposes pinned → bar → overflow as the hotkey order', () => {
-    const layout = computeTabLayout(IDS, ['e'], [], 2);
-    expect(layout.visualOrder).toEqual(['e', 'a', 'b', 'c', 'd']);
-    expect(tabIdForHotkeyIndex(layout, 1)).toBe('e');
-    expect(tabIdForHotkeyIndex(layout, 5)).toBe('d');
-    expect(tabIdForHotkeyIndex(layout, 9)).toBeUndefined();
+  it('keeps pinned tabs in the bar whatever the open list says', () => {
+    const layout = computeTabLayout(IDS, ['e'], [], OPEN);
+    expect(layout.pinned).toEqual(['e']);
+    expect(layout.bar).toEqual(['a', 'b', 'c']);
+    expect(layout.overflow).toEqual(['d']);
   });
 
-  it('never loses a tab across the three buckets', () => {
-    const layout = computeTabLayout(IDS, ['b'], ['e', 'd'], 2);
-    expect([...layout.pinned, ...layout.bar, ...layout.overflow].sort()).toEqual([...IDS].sort());
-  });
-});
-
-describe('moveTabBeforeOrAfter', () => {
-  it('inserts before or after the target regardless of drag direction', () => {
-    // 'a' starts earlier than 'c' — a naive splice-at-original-index approach
-    // would place it differently than when the direction is reversed. This must not.
-    expect(moveTabBeforeOrAfter(IDS, 'a', 'c', 'before')).toEqual(['b', 'a', 'c', 'd', 'e']);
-    expect(moveTabBeforeOrAfter(IDS, 'a', 'c', 'after')).toEqual(['b', 'c', 'a', 'd', 'e']);
-    // 'e' starts later than 'a' — same two outcomes for the same two sides.
-    expect(moveTabBeforeOrAfter(IDS, 'e', 'a', 'before')).toEqual(['e', 'a', 'b', 'c', 'd']);
-    expect(moveTabBeforeOrAfter(IDS, 'e', 'a', 'after')).toEqual(['a', 'e', 'b', 'c', 'd']);
+  it('never lists a pinned tab twice', () => {
+    const layout = computeTabLayout(IDS, ['a'], [], OPEN);
+    expect(layout.bar).not.toContain('a');
+    expect(layout.overflow).not.toContain('a');
+    expect(layout.visualOrder.filter((id) => id === 'a')).toHaveLength(1);
   });
 
-  it('is a no-op for self-drops and unknown ids', () => {
-    expect(moveTabBeforeOrAfter(IDS, 'a', 'a', 'before')).toEqual(IDS);
-    expect(moveTabBeforeOrAfter(IDS, 'ghost', 'a', 'before')).toEqual(IDS);
-    expect(moveTabBeforeOrAfter(IDS, 'a', 'ghost', 'before')).toEqual(IDS);
+  it('accounts for every tool exactly once', () => {
+    const layout = computeTabLayout(IDS, ['d'], ['c', 'a'], OPEN);
+    expect([...layout.visualOrder].sort()).toEqual([...IDS].sort());
+    expect(new Set(layout.visualOrder).size).toBe(IDS.length);
   });
 
-  it('promotes an overflowed tab when dropped before a bar tab', () => {
-    // 'e' sits in overflow relative to a 3-wide bar; dropping it before 'b' (a
-    // bar tab) must both reorder AND promote it in one operation.
-    const layout = computeTabLayout(IDS, [], [], 3);
-    expect(layout.overflow).toContain('e');
-    const next = moveTabBeforeOrAfter(IDS, 'e', 'b', 'before');
-    const promotedLayout = computeTabLayout(IDS, [], next, 3);
-    expect(promotedLayout.bar).toContain('e');
+  it('orders the bar by the user ordering, not the open-list ordering', () => {
+    const layout = computeTabLayout(IDS, [], ['c', 'b', 'a'], ['a', 'b', 'c']);
+    expect(layout.bar).toEqual(['c', 'b', 'a']);
   });
 
-  it('promotes when dropped after a bar tab that is not the last one', () => {
-    // Only the trailing edge of the *last* bar tab sits on the bar/overflow
-    // boundary; any other "after" position is still safely inside the window.
-    const next = moveTabBeforeOrAfter(IDS, 'e', 'a', 'after');
-    expect(computeTabLayout(IDS, [], next, 3).bar).toContain('e');
+  it('ignores ids that are no longer in the registry', () => {
+    const layout = computeTabLayout(IDS, [], [], ['a', 'ghost']);
+    expect(layout.bar).toEqual(['a']);
+    expect(layout.visualOrder).not.toContain('ghost');
   });
 
-  it('does NOT promote a literal "after" drop on the last bar tab', () => {
-    // This is the exact boundary resolveBarDropSide exists to correct — see
-    // below. Documented here so the raw primitive's behaviour stays legible.
-    const next = moveTabBeforeOrAfter(IDS, 'e', 'c', 'after');
-    expect(computeTabLayout(IDS, [], next, 3).bar).not.toContain('e');
-  });
-});
-
-describe('promoteTabToBar', () => {
-  it('displaces the current last bar tab into the front of overflow', () => {
-    const layout = computeTabLayout(IDS, [], [], 3);
-    const next = promoteTabToBar(IDS, 'e', layout);
-    expect(next).toEqual(['a', 'b', 'e', 'c', 'd']);
-
-    const updated = computeTabLayout(IDS, [], next, 3);
-    expect(updated.bar).toEqual(['a', 'b', 'e']);
-    // 'c' held the last bar slot before promotion; it is what gets displaced.
-    expect(updated.overflow[0]).toBe('c');
-  });
-
-  it('keeps the overflow list the same size — the bar window itself never grows', () => {
-    const layout = computeTabLayout(IDS, [], [], 3);
-    const next = promoteTabToBar(IDS, 'd', layout);
-    const updated = computeTabLayout(IDS, [], next, 3);
-    expect(updated.overflow).toHaveLength(layout.overflow.length);
-    expect(updated.bar).toContain('d');
-  });
-
-  it('falls back to the front of the unpinned run when the bar is empty', () => {
-    // barCount 0 forces an empty bar regardless of pins.
-    const layout = computeTabLayout(IDS, [], [], 0);
+  it('tolerates an empty bar', () => {
+    const layout = computeTabLayout(IDS, [], [], []);
     expect(layout.bar).toEqual([]);
-    const next = promoteTabToBar(IDS, 'e', layout);
-    expect(next[0]).toBe('e');
+    expect(layout.overflow).toEqual(IDS);
   });
 });
 
-describe('resolveBarDropSide', () => {
-  it('flips an "after" drop on the last bar tab to "before"', () => {
-    const layout = computeTabLayout(IDS, [], [], 3);
-    expect(resolveBarDropSide(layout, 'c', 'after')).toBe('before');
+describe('defaultBarTabs', () => {
+  it('opens the first tools for a first-time visitor', () => {
+    expect(defaultBarTabs(IDS, 3)).toEqual(['a', 'b', 'c']);
   });
 
-  it('leaves every other bar-tab drop untouched', () => {
-    const layout = computeTabLayout(IDS, [], [], 3);
-    expect(resolveBarDropSide(layout, 'c', 'before')).toBe('before');
-    expect(resolveBarDropSide(layout, 'a', 'after')).toBe('after');
-    expect(resolveBarDropSide(layout, 'b', 'after')).toBe('after');
+  it('never asks for more tools than exist', () => {
+    expect(defaultBarTabs(IDS, 99)).toEqual(IDS);
+  });
+});
+
+/**
+ * The behaviour the fixed-size window got wrong: closing a tab has to leave the
+ * bar shorter. Under the old model the next overflow tool slid straight into
+ * the freed slot, so the count never changed and closing looked like a no-op.
+ */
+describe('closing a tab actually shortens the bar', () => {
+  it('removes it and pulls nothing in behind it', () => {
+    const next = removeTabFromBar(OPEN, 'b');
+    const layout = computeTabLayout(IDS, [], [], next);
+
+    expect(layout.bar).toEqual(['a', 'c']);
+    expect(layout.bar).toHaveLength(OPEN.length - 1);
+    expect(layout.overflow).toEqual(['b', 'd', 'e']);
   });
 
-  it('is a no-op when the bar is empty', () => {
-    const layout = computeTabLayout(IDS, [], [], 0);
-    expect(resolveBarDropSide(layout, 'a', 'after')).toBe('after');
+  it('can empty the bar completely', () => {
+    let open: string[] = [...OPEN];
+    for (const id of OPEN) open = removeTabFromBar(open, id);
+    expect(computeTabLayout(IDS, [], [], open).bar).toEqual([]);
+  });
+
+  it('leaves the tool available in More', () => {
+    const layout = computeTabLayout(IDS, [], [], removeTabFromBar(OPEN, 'a'));
+    expect(layout.overflow).toContain('a');
+    expect(layout.visualOrder).toContain('a');
+  });
+
+  it('is a no-op for a tool that is not open', () => {
+    expect(removeTabFromBar(OPEN, 'e')).toEqual(OPEN);
+  });
+});
+
+describe('opening a tab', () => {
+  it('adds it to the end of the bar', () => {
+    const next = addTabToBar(OPEN, 'e');
+    expect(computeTabLayout(IDS, [], [], next).bar).toEqual(['a', 'b', 'c', 'e']);
+  });
+
+  it('cannot open the same tool twice', () => {
+    expect(addTabToBar(OPEN, 'b')).toEqual(OPEN);
+    const twice = addTabToBar(addTabToBar(OPEN, 'e'), 'e');
+    expect(twice.filter((id) => id === 'e')).toHaveLength(1);
+  });
+
+  it('positions a promoted tool after the last open one', () => {
+    const layout = computeTabLayout(IDS, [], [], OPEN);
+    const order = promoteTabToBar(IDS, 'e', layout);
+    const next = computeTabLayout(IDS, [], order, addTabToBar(OPEN, 'e'));
+    expect(next.bar).toEqual(['a', 'b', 'c', 'e']);
+  });
+});
+
+describe('close and reopen is reversible', () => {
+  it('round-trips a tab out of the bar and back', () => {
+    const closed = removeTabFromBar(OPEN, 'b');
+    expect(computeTabLayout(IDS, [], [], closed).overflow).toContain('b');
+
+    const reopened = addTabToBar(closed, 'b');
+    expect(computeTabLayout(IDS, [], [], reopened).bar).toContain('b');
+  });
+
+  it('keeps every tool reachable however the bar is churned', () => {
+    let open: string[] = [...OPEN];
+    for (const id of IDS) {
+      open = open.includes(id) ? removeTabFromBar(open, id) : addTabToBar(open, id);
+      const layout = computeTabLayout(IDS, [], [], open);
+      expect([...layout.visualOrder].sort()).toEqual([...IDS].sort());
+      expect(new Set(layout.visualOrder).size).toBe(IDS.length);
+      for (const barId of layout.bar) expect(layout.overflow).not.toContain(barId);
+    }
+  });
+
+  it('survives closing a pinned tool without losing the pin', () => {
+    const open = removeTabFromBar(OPEN, 'a');
+    const layout = computeTabLayout(IDS, ['a'], [], open);
+    expect(layout.pinned).toEqual(['a']);
+    expect(layout.bar).not.toContain('a');
+  });
+});
+
+describe('tabIdForHotkeyIndex', () => {
+  it('counts through pinned, then bar, then overflow', () => {
+    const layout = computeTabLayout(IDS, ['e'], [], OPEN);
+    expect(tabIdForHotkeyIndex(layout, 1)).toBe('e');
+    expect(tabIdForHotkeyIndex(layout, 2)).toBe('a');
+    expect(tabIdForHotkeyIndex(layout, 5)).toBe('d');
+    expect(tabIdForHotkeyIndex(layout, 6)).toBeUndefined();
   });
 });
 
 describe('sideFromPointerX', () => {
-  it('reports before on the left half and after on the right half', () => {
-    const rect = { left: 100, width: 40 };
-    expect(sideFromPointerX(rect, 110)).toBe('before');
-    expect(sideFromPointerX(rect, 119)).toBe('before');
-    expect(sideFromPointerX(rect, 121)).toBe('after');
-    expect(sideFromPointerX(rect, 139)).toBe('after');
+  const rect = { left: 100, width: 80 };
+  it('reads the left half as before', () => {
+    expect(sideFromPointerX(rect, 120)).toBe('before');
   });
-
-  it('treats the exact midpoint as after', () => {
-    expect(sideFromPointerX({ left: 0, width: 100 }, 50)).toBe('after');
+  it('reads the right half as after', () => {
+    expect(sideFromPointerX(rect, 170)).toBe('after');
   });
 });

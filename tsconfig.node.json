@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "skipLibCheck": true,
+    /* These files run on Node 18+, never in a browser. Without an explicit
+       target tsc assumes ES5 and rejects modern iteration (matchAll, ...). */
+    "target": "ES2022",
+    "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,

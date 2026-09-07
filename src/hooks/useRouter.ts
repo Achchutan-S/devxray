@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  HOME_PATH,
   metaForRoute,
   pathForPage,
   pathForTab,
@@ -7,6 +8,7 @@ import {
   type ContentPageId,
   type Route,
 } from '@/constants/routes';
+import { DEFAULT_TAB_ID } from '@/constants/tabs';
 import { useUIStore } from '@/store';
 
 /**
@@ -62,7 +64,10 @@ export interface RouterState {
   /** Content page to render instead of the tool workspace, if any. */
   readonly page: ContentPageId | null;
   readonly navigateToPage: (pageId: ContentPageId) => void;
+  /** Leaves a content page for whichever tool is open. Used by "Back to the tools". */
   readonly navigateHome: () => void;
+  /** Returns to the application's base URL and its default tool. */
+  readonly navigateToBase: () => void;
 }
 
 export function useRouter(): RouterState {
@@ -83,9 +88,19 @@ export function useRouter(): RouterState {
   useEffect(() => {
     const route = currentRoute();
     if (route.kind === 'home') {
-      const path = pathForTab(useUIStore.getState().activeTab);
-      window.history.replaceState(null, '', path + window.location.search);
-      applyDocumentMeta(resolveRoute(path));
+      // `/` is the canonical URL for the default tool, so landing there with the
+      // default tool open needs no rewrite — that is what lets the brand mark's
+      // destination survive a refresh. Any *other* restored tool still gets
+      // normalised to its own path, so the address bar never claims to be home
+      // while a different tool is on screen.
+      const tab = useUIStore.getState().activeTab;
+      if (tab === DEFAULT_TAB_ID) {
+        applyDocumentMeta(route);
+      } else {
+        const path = pathForTab(tab);
+        window.history.replaceState(null, '', path + window.location.search);
+        applyDocumentMeta(resolveRoute(path));
+      }
     } else {
       applyDocumentMeta(route);
     }
@@ -98,6 +113,15 @@ export function useRouter(): RouterState {
   useEffect(() => {
     if (page !== null) return;
     if (!booted.current) return;
+
+    // Sitting at the base URL on the default tool is a legitimate resting state,
+    // not a URL waiting to be corrected. Without this the brand mark would push
+    // `/` and this effect would immediately push the tool path back over it.
+    if (window.location.pathname === HOME_PATH && activeTab === DEFAULT_TAB_ID) {
+      applyDocumentMeta({ kind: 'home' });
+      return;
+    }
+
     const desired = pathForTab(activeTab);
     if (window.location.pathname !== desired) {
       window.history.pushState(null, '', desired + window.location.search);
@@ -115,7 +139,10 @@ export function useRouter(): RouterState {
         setPage(null);
         setActiveTab(route.tabId);
       } else {
+        // Back/forward onto `/` must land where the brand mark lands, or the
+        // address bar would read as home while another tool is on screen.
         setPage(null);
+        setActiveTab(DEFAULT_TAB_ID);
       }
       applyDocumentMeta(route);
     };
@@ -137,5 +164,22 @@ export function useRouter(): RouterState {
     applyDocumentMeta(resolveRoute(path));
   }, []);
 
-  return { page, navigateToPage, navigateHome };
+  /**
+   * The brand mark's destination: the base URL, showing the default tool.
+   *
+   * Deliberately not `navigateHome` — that resolves to the *current* tool, which
+   * is the right answer for "back to the tools" from a content page and the
+   * wrong one for a logo. Resetting the active tab is what makes the URL stick:
+   * the effect above mirrors `activeTab` into the address bar, so leaving a tool
+   * selected would immediately push its path back over `/`.
+   */
+  const navigateToBase = useCallback(() => {
+    setPage(null);
+    setActiveTab(DEFAULT_TAB_ID);
+    window.history.pushState(null, '', HOME_PATH);
+    applyDocumentMeta({ kind: 'home' });
+    window.scrollTo(0, 0);
+  }, [setActiveTab]);
+
+  return { page, navigateToPage, navigateHome, navigateToBase };
 }

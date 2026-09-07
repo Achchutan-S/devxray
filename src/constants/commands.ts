@@ -1,4 +1,4 @@
-import { Moon, Sun, ExternalLink } from 'lucide-react';
+import { BookOpen, Moon, ShieldCheck, Sun, ExternalLink } from 'lucide-react';
 import { TABS } from './tabs';
 import { CONTENT_PAGE_IDS, CONTENT_PAGE_NAV, REPO_URL } from './routes';
 import type { ContentPageId } from './routes';
@@ -47,6 +47,9 @@ export function buildPageCommands(deps: CommandDeps): Command[] {
     label: CONTENT_PAGE_NAV[id].label,
     category: 'page',
     hint: CONTENT_PAGE_NAV[id].keywords,
+    // The group is the icon: documentation reads as a book, trust as a shield,
+    // so a page result is distinguishable from a tool at a glance.
+    icon: CONTENT_PAGE_NAV[id].group === 'learn' ? BookOpen : ShieldCheck,
     run: () => deps.navigateToPage(id),
   }));
 }

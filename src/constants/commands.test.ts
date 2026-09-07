@@ -11,6 +11,7 @@ import {
 import {
   CONTENT_PAGE_IDS,
   CONTENT_PAGE_NAV,
+  HOME_PATH,
   REPO_URL,
   contentPagesInGroup,
   pathForPage,
@@ -230,5 +231,38 @@ describe('result grouping', () => {
 
   it('returns nothing for a query that matches nothing', () => {
     expect(search('zzzqqqxxx')).toHaveLength(0);
+  });
+});
+
+/**
+ * The brand mark's destination.
+ *
+ * The regression this guards is specific: an earlier "home" affordance resolved
+ * to `pathForTab(activeTab)`, so clicking the logo while a tool was open just
+ * re-navigated to that same tool. Home has to be the base URL.
+ */
+describe('home navigation', () => {
+  it('uses the application base URL', () => {
+    expect(HOME_PATH).toBe('/');
+  });
+
+  it('resolves to the home route, not a tool or a page', () => {
+    expect(resolveRoute(HOME_PATH)).toEqual({ kind: 'home' });
+  });
+
+  it('is never equal to any tool route', () => {
+    for (const id of TAB_IDS) {
+      expect(pathForTab(id), `${id} collides with the home path`).not.toBe(HOME_PATH);
+    }
+  });
+
+  it('is never equal to any content page route', () => {
+    for (const id of CONTENT_PAGE_IDS) {
+      expect(pathForPage(id)).not.toBe(HOME_PATH);
+    }
+  });
+
+  it('still resolves home for an unknown path', () => {
+    expect(resolveRoute('/not-a-real-route')).toEqual({ kind: 'home' });
   });
 });

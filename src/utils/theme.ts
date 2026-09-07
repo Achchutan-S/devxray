@@ -1,7 +1,12 @@
 import type { Theme } from '@/types';
 import { STORAGE_KEYS } from './constants';
 
-export const DEFAULT_THEME: Theme = 'dark';
+/**
+ * Grass (light) is the default. Only applies when nothing is stored: a visitor
+ * who has already chosen keeps their choice, because `readStoredTheme` returns
+ * this constant solely when there is no persisted value to read.
+ */
+export const DEFAULT_THEME: Theme = 'light';
 
 function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark';

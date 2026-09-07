@@ -149,12 +149,28 @@ export function CommandPalette({ isOpen, onClose, onNavigateToPage }: CommandPal
                   data-selected={isSelected}
                   onMouseEnter={() => setSelected(index)}
                   onClick={() => run(command)}
+                  // The selected row carries the same painted court line the
+                  // active tab uses, so "this is current" reads identically
+                  // wherever it appears.
+                  style={
+                    isSelected
+                      ? { boxShadow: 'inset 2px 0 0 0 rgb(var(--dx-accent))' }
+                      : undefined
+                  }
                   className={cn(
                     'flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm',
-                    isSelected ? 'bg-accent/15 text-fg' : 'text-fg-muted hover:bg-surface',
+                    isSelected ? 'bg-accent-soft text-fg' : 'text-fg-muted hover:bg-surface',
                   )}
                 >
-                  {Icon ? <Icon className="h-4 w-4 shrink-0 text-fg-subtle" aria-hidden="true" /> : null}
+                  {Icon ? (
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 shrink-0',
+                        isSelected ? 'text-accent' : 'text-fg-subtle',
+                      )}
+                      aria-hidden="true"
+                    />
+                  ) : null}
                   <span className="min-w-0 flex-1 truncate">{command.label}</span>
                   {isSelected && (
                     <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden="true" />

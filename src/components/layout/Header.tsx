@@ -1,6 +1,6 @@
 import { Keyboard, Maximize2, Menu, Moon, Search, ShieldCheck, Sun } from 'lucide-react';
 import { CATEGORY_LABELS, getTab } from '@/constants/tabs';
-import { REPO_URL, type ContentPageId } from '@/constants/routes';
+import { HOME_PATH, REPO_URL, type ContentPageId } from '@/constants/routes';
 import { renderShortcut } from '@/constants/shortcuts';
 import { usePreferenceStore, useUIStore } from '@/store';
 import { GitHubMark, IconButton, IconLink } from '@/components/common';
@@ -10,6 +10,23 @@ interface HeaderProps {
   onOpenShortcuts: () => void;
   onOpenNav: () => void;
   onOpenPage: (pageId: ContentPageId) => void;
+  /** Brand mark destination: the application's base URL. */
+  onNavigateHome: () => void;
+}
+
+/**
+ * True when a click on an anchor should be handled by the app rather than the
+ * browser. Modified clicks and non-primary buttons are the user asking for a new
+ * tab or window, and taking those over is the classic SPA-link mistake.
+ */
+function isPlainLeftClick(event: React.MouseEvent): boolean {
+  return (
+    event.button === 0 &&
+    !event.metaKey &&
+    !event.ctrlKey &&
+    !event.shiftKey &&
+    !event.altKey
+  );
 }
 
 /**
@@ -33,7 +50,13 @@ function ScanMark() {
   );
 }
 
-export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav, onOpenPage }: HeaderProps) {
+export function Header({
+  onOpenPalette,
+  onOpenShortcuts,
+  onOpenNav,
+  onOpenPage,
+  onNavigateHome,
+}: HeaderProps) {
   const theme = usePreferenceStore((state) => state.theme);
   const toggleTheme = usePreferenceStore((state) => state.toggleTheme);
   const activeTab = useUIStore((state) => state.activeTab);
@@ -53,18 +76,31 @@ export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav, onOpenPage }
       </button>
 
       <div className="flex min-w-0 items-center gap-2">
-        {/* Mark plus a single ribbon edge in the secondary identity colour —
-            purple against grass green, court green against clay. This and one
-            status tier are the only places the secondary colour appears. */}
-        <span aria-hidden="true" className="flex shrink-0 items-stretch gap-[3px]">
-          <span className="w-[3px] rounded-full bg-secondary" />
-          <span className="grid h-7 w-7 place-items-center rounded bg-accent">
-            <ScanMark />
+        {/* A real anchor to the base URL, so hover preview, middle-click and
+            "open in new tab" all behave. A plain left click is intercepted and
+            handed to the router instead, which keeps it a single-page
+            navigation. Mark plus a single ribbon edge in the secondary identity
+            colour — purple against grass green, court green against clay. */}
+        <a
+          href={HOME_PATH}
+          onClick={(event) => {
+            if (!isPlainLeftClick(event)) return;
+            event.preventDefault();
+            onNavigateHome();
+          }}
+          aria-label="Dev X-Ray home"
+          className="group flex min-w-0 shrink-0 items-center gap-2 rounded"
+        >
+          <span aria-hidden="true" className="flex shrink-0 items-stretch gap-[3px]">
+            <span className="w-[3px] rounded-full bg-secondary" />
+            <span className="grid h-7 w-7 place-items-center rounded bg-accent group-hover:bg-accent-hover">
+              <ScanMark />
+            </span>
           </span>
-        </span>
-        <span className="shrink-0 text-sm font-semibold tracking-tight text-fg">
-          Dev<span className="text-fg-muted"> </span>X-Ray
-        </span>
+          <span className="shrink-0 text-sm font-semibold tracking-tight text-fg group-hover:text-accent">
+            Dev<span className="text-fg-muted"> </span>X-Ray
+          </span>
+        </a>
         {tab ? (
           <>
             <span className="hidden h-4 w-px shrink-0 bg-line-strong sm:block" aria-hidden="true" />

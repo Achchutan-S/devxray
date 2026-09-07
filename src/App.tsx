@@ -21,6 +21,7 @@ export function App() {
   const toggleTheme = usePreferenceStore((state) => state.toggleTheme);
   const pinnedTabs = usePreferenceStore((state) => state.pinnedTabs);
   const tabOrder = usePreferenceStore((state) => state.tabOrder);
+  const barTabs = usePreferenceStore((state) => state.barTabs);
 
   const activeTab = useUIStore((state) => state.activeTab);
   const setActiveTab = useUIStore((state) => state.setActiveTab);
@@ -33,8 +34,8 @@ export function App() {
   const [navOpen, setNavOpen] = useState(false);
 
   const layout = useMemo(
-    () => computeTabLayout(TAB_IDS, pinnedTabs, tabOrder),
-    [pinnedTabs, tabOrder],
+    () => computeTabLayout(TAB_IDS, pinnedTabs, tabOrder, barTabs),
+    [pinnedTabs, tabOrder, barTabs],
   );
 
   const handleSelectTabByIndex = useCallback(
@@ -64,7 +65,7 @@ export function App() {
   const handleCloseNav = useCallback(() => setNavOpen(false), []);
 
   useImportShareLink(setActiveTab);
-  const { page, navigateToPage, navigateHome } = useRouter();
+  const { page, navigateToPage, navigateHome, navigateToBase } = useRouter();
 
   useHotkeyManager({
     onToggleTheme: handleToggleTheme,
@@ -89,6 +90,7 @@ export function App() {
             onOpenShortcuts={handleOpenShortcuts}
             onOpenNav={handleOpenNav}
             onOpenPage={navigateToPage}
+            onNavigateHome={navigateToBase}
           />
         )}
 

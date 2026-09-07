@@ -7,7 +7,7 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from 'react';
-import { MoreHorizontal, PanelRightOpen, Pin, PinOff } from 'lucide-react';
+import { MoreHorizontal, PanelRightOpen, Pin, PinOff, X } from 'lucide-react';
 import { TABS, TAB_IDS, getTab } from '@/constants/tabs';
 import { TAB_DRAG_TYPE, isTabDrag } from '@/constants/dragTypes';
 import { usePreferenceStore, useUIStore } from '@/store';
@@ -16,7 +16,6 @@ import {
   computeTabLayout,
   moveTabBeforeOrAfter,
   promoteTabToBar,
-  resolveBarDropSide,
   sideFromPointerX,
   type DropSide,
   type TabLayout,
@@ -44,6 +43,8 @@ interface TabButtonProps {
   dropSide: DropSide | null;
   onSelect: (id: string) => void;
   onTogglePin: (id: string) => void;
+  /** Absent for pinned tabs, which hold their slot by definition. */
+  onDemote?: (id: string) => void;
   onDragStart?: (event: DragEvent<Element>, id: string) => void;
   onDragEnd?: () => void;
   onDragOverTab?: (event: DragEvent<HTMLDivElement>, id: string) => void;
@@ -59,6 +60,7 @@ function TabButton({
   dropSide,
   onSelect,
   onTogglePin,
+  onDemote,
   onDragStart,
   onDragEnd,
   onDragOverTab,
@@ -90,11 +92,11 @@ function TabButton({
         onClick={() => onSelect(tabId)}
         className={cn(
           // The active tab is lifted onto the working surface and marked with a
-          // painted court line — chalk on clay, court green on grass — rather
-          // than a default-looking 1px accent underline.
+          // painted court line in the secondary identity colour: championship
+          // purple on grass, court green on clay.
           'flex items-center gap-1.5 border-t-[3px] py-2 pl-3 pr-7 text-sm whitespace-nowrap',
           isActive
-            ? 'border-court-line bg-surface text-fg'
+            ? 'border-secondary bg-surface text-fg'
             : 'border-transparent text-fg-muted hover:bg-surface/60 hover:text-fg',
         )}
       >
@@ -102,25 +104,42 @@ function TabButton({
         {tab.label}
       </button>
 
-      <button
-        type="button"
-        onClick={() => onTogglePin(tabId)}
-        aria-label={isPinned ? `Unpin ${tab.label}` : `Pin ${tab.label}`}
-        title={isPinned ? 'Unpin' : 'Pin'}
-        className={cn(
-          'absolute right-1 rounded p-0.5 hover:bg-surface-raised hover:text-fg',
-          // Pinned state stays visible; the rest reveal on hover or keyboard focus.
+      {/*
+        Exactly one control, sitting inside the padding the tab already
+        reserves — so nothing overlaps the label and a tab at rest is just its
+        icon and its name. A pinned tab shows its pin; everything else shows a
+        close affordance on hover.
+      */}
+      {isPinned ? (
+        <button
+          type="button"
+          onClick={() => onTogglePin(tabId)}
+          aria-label={`Unpin ${tab.label}`}
+          title="Unpin"
           // Pinned uses the secondary identity colour rather than the accent, so
           // "kept here" never reads as "this is the active tool".
-          isPinned ? 'text-secondary opacity-100' : 'text-fg-subtle opacity-0 focus:opacity-100 group-hover:opacity-100',
-        )}
-      >
-        {isPinned ? (
+          className="absolute right-1 rounded p-0.5 text-secondary hover:bg-surface-raised"
+        >
           <Pin className="h-3 w-3 fill-current" aria-hidden="true" />
-        ) : (
-          <Pin className="h-3 w-3" aria-hidden="true" />
-        )}
-      </button>
+        </button>
+      ) : onDemote ? (
+        <button
+          type="button"
+          onClick={() => onDemote(tabId)}
+          // The gesture people expect on a tab strip, and it genuinely shortens
+          // the bar. It does not destroy anything: the tool keeps running and
+          // stays in More, which is what the label says.
+          aria-label={`Close ${tab.label} tab`}
+          title="Close tab — stays in More"
+          className={cn(
+            'absolute right-1 rounded p-0.5 text-fg-subtle',
+            'hover:bg-surface-raised hover:text-fg',
+            'opacity-0 focus:opacity-100 group-hover:opacity-100',
+          )}
+        >
+          <X className="h-3 w-3" aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -130,8 +149,11 @@ export function TabBar() {
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const pinnedTabs = usePreferenceStore((state) => state.pinnedTabs);
   const tabOrder = usePreferenceStore((state) => state.tabOrder);
+  const barTabs = usePreferenceStore((state) => state.barTabs);
   const togglePinTab = usePreferenceStore((state) => state.togglePinTab);
   const setTabOrder = usePreferenceStore((state) => state.setTabOrder);
+  const openTabInBar = usePreferenceStore((state) => state.openTabInBar);
+  const closeTabInBar = usePreferenceStore((state) => state.closeTabInBar);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -142,8 +164,8 @@ export function TabBar() {
   const menuToggleRef = useRef<HTMLButtonElement>(null);
 
   const layout: TabLayout = useMemo(
-    () => computeTabLayout(TAB_IDS, pinnedTabs, tabOrder),
-    [pinnedTabs, tabOrder],
+    () => computeTabLayout(TAB_IDS, pinnedTabs, tabOrder, barTabs),
+    [pinnedTabs, tabOrder, barTabs],
   );
 
   // Outside click closes the More menu. A full-screen backdrop (the more
@@ -196,13 +218,12 @@ export function TabBar() {
       event.preventDefault();
       event.dataTransfer.dropEffect = 'move';
 
-      const rawSide = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
-      const side = resolveBarDropSide(layout, targetId, rawSide);
+      const side = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
       setDropIndicator((current) =>
         current?.targetId === targetId && current.side === side ? current : { targetId, side },
       );
     },
-    [layout],
+    [],
   );
 
   const handleDropOnTab = useCallback(
@@ -214,11 +235,12 @@ export function TabBar() {
       handleDragEnd();
       if (!sourceId || sourceId === targetId) return;
 
-      const rawSide = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
-      const side = resolveBarDropSide(layout, targetId, rawSide);
+      const side = sideFromPointerX(event.currentTarget.getBoundingClientRect(), event.clientX);
       setTabOrder(moveTabBeforeOrAfter(fullOrder, sourceId, targetId, side));
+      // Dropping onto the bar also opens it there, if it came from More.
+      openTabInBar(sourceId);
     },
-    [layout, fullOrder, setTabOrder, handleDragEnd],
+    [fullOrder, setTabOrder, openTabInBar, handleDragEnd],
   );
 
   const handleTrailingDragOver = useCallback((event: DragEvent<HTMLDivElement>): void => {
@@ -237,15 +259,28 @@ export function TabBar() {
       handleDragEnd();
       if (!sourceId) return;
       setTabOrder(promoteTabToBar(fullOrder, sourceId, layout));
+      openTabInBar(sourceId);
     },
-    [fullOrder, layout, setTabOrder, handleDragEnd],
+    [fullOrder, layout, setTabOrder, openTabInBar, handleDragEnd],
   );
 
   const handlePromoteToBar = useCallback(
     (tabId: string) => {
       setTabOrder(promoteTabToBar(fullOrder, tabId, layout));
+      openTabInBar(tabId);
     },
-    [fullOrder, layout, setTabOrder],
+    [fullOrder, layout, setTabOrder, openTabInBar],
+  );
+
+  /**
+   * Closing a tab removes it from the bar and nothing else. The tool keeps
+   * running, keeps whatever is typed into it, stays the active tool if it was,
+   * and is one click away in More. Nothing slides in to take its place — the
+   * bar is simply one tab shorter, which is the entire point.
+   */
+  const handleCloseTab = useCallback(
+    (tabId: string) => closeTabInBar(tabId),
+    [closeTabInBar],
   );
 
   const overflowTabs = layout.overflow.map((id) => getTab(id)).filter((t) => t !== undefined);
@@ -287,6 +322,7 @@ export function TabBar() {
             dropSide={dropIndicator?.targetId === id ? dropIndicator.side : null}
             onSelect={setActiveTab}
             onTogglePin={togglePinTab}
+            onDemote={handleCloseTab}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
             onDragOverTab={handleDragOverTab}
@@ -317,13 +353,24 @@ export function TabBar() {
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             className={cn(
-              'flex h-full items-center gap-1 px-3 text-sm',
-              activeIsOverflowed ? 'text-fg' : 'text-fg-muted hover:text-fg',
+              'flex h-full items-center gap-1 border-t-[3px] px-3 text-sm',
+              activeIsOverflowed
+                ? 'border-secondary bg-surface text-fg'
+                : 'border-transparent text-fg-muted hover:text-fg',
             )}
           >
             <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">More</span>
-            <span className="rounded bg-surface-sunken px-1 text-[10px]">
+            {/* A count, not an alert: the secondary identity colour marks it as
+                metadata rather than something demanding attention. */}
+            <span
+              className={cn(
+                'rounded px-1 text-[10px] font-semibold',
+                activeIsOverflowed
+                  ? 'bg-accent-soft text-accent'
+                  : 'bg-secondary-soft text-secondary',
+              )}
+            >
               {overflowTabs.length}
             </span>
           </button>
@@ -357,8 +404,10 @@ export function TabBar() {
                       }}
                       className={cn(
                         'flex min-w-0 flex-1 items-center gap-2 px-3 py-1.5 text-left text-sm',
+                        // The active tool stays marked while it lives in More,
+                        // so demoting it never loses track of where you are.
                         tab.id === activeTab
-                          ? 'text-fg'
+                          ? 'bg-accent-soft font-medium text-accent'
                           : 'text-fg-muted hover:bg-surface hover:text-fg',
                       )}
                     >

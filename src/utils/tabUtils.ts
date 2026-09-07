@@ -3,9 +3,9 @@ import { CONFIG } from './constants';
 export interface TabLayout {
   /** Pinned tabs, always visible, never reorderable by drag. */
   readonly pinned: readonly string[];
-  /** Unpinned tabs shown directly in the bar. */
+  /** Unpinned tabs the user has open in the bar. */
   readonly bar: readonly string[];
-  /** Unpinned tabs behind the More menu. */
+  /** Everything else, reachable through the More menu. */
   readonly overflow: readonly string[];
   /** pinned → bar → overflow. Drives Cmd/Ctrl+1–9. */
   readonly visualOrder: readonly string[];
@@ -38,22 +38,44 @@ export function applyTabOrder(
   return ordered;
 }
 
+/**
+ * What a first-time visitor finds open in the bar.
+ *
+ * Only a starting point. From then on the bar is whatever the user has left
+ * open, which is persisted, so this is never consulted again.
+ */
+export function defaultBarTabs(
+  allIds: readonly string[],
+  count: number = CONFIG.DEFAULT_BAR_TAB_COUNT,
+): string[] {
+  return allIds.slice(0, count);
+}
+
+/**
+ * Splits the registry into what is showing in the bar and what sits behind More.
+ *
+ * Bar membership is explicit — `barTabs` is the list of tools the user has open
+ * — rather than derived from a fixed-size window over `tabOrder`. That
+ * difference is the entire point of this model: under a window, removing a tab
+ * immediately pulled the next tool in from overflow, so the bar never got any
+ * shorter and closing a tab produced no visible change at all. With explicit
+ * membership, a closed tab leaves and the bar stays that much cleaner.
+ *
+ * Pinned tools are in the bar by definition, whatever `barTabs` says.
+ */
 export function computeTabLayout(
   allIds: readonly string[],
   pinnedTabs: readonly string[],
   tabOrder: readonly string[],
-  barCount: number = CONFIG.DEFAULT_BAR_TAB_COUNT,
+  barTabs: readonly string[],
 ): TabLayout {
   const ordered = applyTabOrder(allIds, tabOrder);
   const pinnedSet = new Set(pinnedTabs);
+  const barSet = new Set(barTabs);
 
   const pinned = ordered.filter((id) => pinnedSet.has(id));
-  const unpinned = ordered.filter((id) => !pinnedSet.has(id));
-
-  // Pinned tabs occupy bar slots, so a heavily pinned bar overflows sooner.
-  const remaining = Math.max(0, barCount - pinned.length);
-  const bar = unpinned.slice(0, remaining);
-  const overflow = unpinned.slice(remaining);
+  const bar = ordered.filter((id) => !pinnedSet.has(id) && barSet.has(id));
+  const overflow = ordered.filter((id) => !pinnedSet.has(id) && !barSet.has(id));
 
   return {
     pinned,
@@ -61,6 +83,22 @@ export function computeTabLayout(
     overflow,
     visualOrder: [...pinned, ...bar, ...overflow],
   };
+}
+
+/** Opens a tool in the bar, at the end, if it is not already there. */
+export function addTabToBar(barTabs: readonly string[], tabId: string): string[] {
+  return barTabs.includes(tabId) ? [...barTabs] : [...barTabs, tabId];
+}
+
+/**
+ * Takes a tool out of the bar.
+ *
+ * The tool is not closed: it returns to the More menu, keeps whatever is typed
+ * into it, and stays the active tool if it was one. Nothing slides in to take
+ * its place.
+ */
+export function removeTabFromBar(barTabs: readonly string[], tabId: string): string[] {
+  return barTabs.filter((id) => id !== tabId);
 }
 
 export type DropSide = 'before' | 'after';
@@ -76,8 +114,7 @@ export type DropSide = 'before' | 'after';
  * surprising: dropping on the same visual half of the same tab should always do
  * the same thing.
  *
- * Serves both plain reordering (source and target already in the bar) and
- * promotion (source in the More overflow, target in the bar) — one insertion
+ * Serves both plain reordering and promotion from the More menu — one insertion
  * primitive for both, rather than two similar but subtly different ones.
  */
 export function moveTabBeforeOrAfter(
@@ -101,57 +138,26 @@ export function moveTabBeforeOrAfter(
 }
 
 /**
- * Promotes an overflowed tab into the visible bar: the state transition behind
- * both dropping it on the bar's empty trailing space and the keyboard-accessible
- * "Add to tab bar" action.
+ * Positions a newly opened tool at the end of the visible row rather than
+ * wherever its registry position happens to fall.
  *
- * The bar is a fixed-size window (the first `remaining` unpinned tabs in
- * order), so promoting one tab always displaces another — whichever currently
- * sits in the last bar slot becomes the new first overflow entry. Anchoring
- * with `'before'` the last bar tab is what achieves this: it takes over that
- * slot and shifts the previous occupant out, rather than landing one slot
- * further out at the boundary itself, which is still overflow.
- *
- * Falls back to the front of the unpinned run in the (practically unreachable,
- * since it requires pinning at least `DEFAULT_BAR_TAB_COUNT` tabs) case where
- * the bar itself is empty.
+ * Membership is `addTabToBar`'s job; this only decides ordering, so the two can
+ * be applied together or independently.
  */
 export function promoteTabToBar(
   currentOrder: readonly string[],
   tabId: string,
   layout: TabLayout,
 ): string[] {
-  const lastBarTab = layout.bar[layout.bar.length - 1];
-  if (lastBarTab !== undefined) {
-    return moveTabBeforeOrAfter(currentOrder, tabId, lastBarTab, 'before');
-  }
-
-  const withoutDragged = currentOrder.filter((id) => id !== tabId);
-  const pinnedSet = new Set(layout.pinned);
-  const firstUnpinnedIndex = withoutDragged.findIndex((id) => !pinnedSet.has(id));
-  const insertAt = firstUnpinnedIndex === -1 ? withoutDragged.length : firstUnpinnedIndex;
-
-  const next = [...withoutDragged];
-  next.splice(insertAt, 0, tabId);
-  return next;
+  const anchor =
+    layout.bar[layout.bar.length - 1] ?? layout.pinned[layout.pinned.length - 1];
+  if (anchor === undefined || anchor === tabId) return [...currentOrder];
+  return moveTabBeforeOrAfter(currentOrder, tabId, anchor, 'after');
 }
 
 /** Left half of `rect` means "before"; right half means "after". */
 export function sideFromPointerX(rect: Pick<DOMRect, 'left' | 'width'>, clientX: number): DropSide {
   return clientX < rect.left + rect.width / 2 ? 'before' : 'after';
-}
-
-/**
- * Corrects one boundary case for a drop landing directly on a bar tab: the
- * trailing (right) edge of the *last* bar tab sits exactly on the seam between
- * the bar and overflow. A literal "insert after" there lands in the first
- * overflow slot — never visible — which is not what dropping onto the visible
- * bar should ever produce. Every other position (before any bar tab, or after
- * a non-last one) already falls inside the bar's window and needs no change.
- */
-export function resolveBarDropSide(layout: TabLayout, targetId: string, side: DropSide): DropSide {
-  const isTrailingEdge = side === 'after' && layout.bar[layout.bar.length - 1] === targetId;
-  return isTrailingEdge ? 'before' : side;
 }
 
 /** Resolves a 1-based hotkey index (Cmd+1–9) to a tab id. */

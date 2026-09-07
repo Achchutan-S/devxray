@@ -96,6 +96,20 @@ function CategoryRail({ selected, onSelect }: RailProps) {
 
 const PAGE_GROUPS: readonly ContentPageGroup[] = ['learn', 'trust'];
 
+/**
+ * Each group carries one identity colour, used only as a short rule beside the
+ * heading and as the link hover tint — never as resting text colour, which would
+ * put a saturated hue on body copy and cost contrast for nothing.
+ *
+ * Documentation takes the secondary colour (purple on grass, court green on
+ * clay); trust takes the primary accent, matching the shield already in the
+ * header. Source stays neutral: it leaves the app.
+ */
+const GROUP_ACCENT: Record<ContentPageGroup, { rule: string; hover: string }> = {
+  learn: { rule: 'bg-secondary', hover: 'hover:text-secondary' },
+  trust: { rule: 'bg-accent', hover: 'hover:text-accent' },
+};
+
 interface PageLinksProps {
   onNavigate: (pageId: ContentPageId) => void;
 }
@@ -107,21 +121,37 @@ interface PageLinksProps {
  * — because the tools are what someone came for. This is the answer to "where
  * is everything else?", not a competing menu.
  */
+function GroupHeading({ label, rule }: { label: string; rule?: string }) {
+  return (
+    <h3 className="flex items-center gap-1.5 px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle">
+      {rule ? (
+        <span aria-hidden="true" className={cn('h-2 w-[2px] shrink-0 rounded-full', rule)} />
+      ) : null}
+      {label}
+    </h3>
+  );
+}
+
 function PageLinks({ onNavigate }: PageLinksProps) {
   const row =
-    'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-fg-subtle hover:bg-surface-raised hover:text-fg';
+    'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-fg-subtle hover:bg-surface-raised';
 
   return (
-    <div className="mt-1 border-t border-line px-1.5 pb-2 pt-2">
+    <div className="mt-1 border-t border-line px-1.5 pb-2 pt-1">
       {PAGE_GROUPS.map((group) => (
-        <div key={group} className="mb-1.5 last:mb-0">
-          <h3 className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle">
-            {CONTENT_PAGE_GROUP_LABELS[group]}
-          </h3>
+        <div key={group}>
+          <GroupHeading
+            label={CONTENT_PAGE_GROUP_LABELS[group]}
+            rule={GROUP_ACCENT[group].rule}
+          />
           <ul>
             {contentPagesInGroup(group).map((id) => (
               <li key={id}>
-                <button type="button" onClick={() => onNavigate(id)} className={row}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(id)}
+                  className={cn(row, GROUP_ACCENT[group].hover)}
+                >
                   <span className="truncate">{CONTENT_PAGE_NAV[id].label}</span>
                 </button>
               </li>
@@ -130,10 +160,13 @@ function PageLinks({ onNavigate }: PageLinksProps) {
         </div>
       ))}
 
-      <h3 className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle">
-        Source
-      </h3>
-      <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={row}>
+      <GroupHeading label="Source" />
+      <a
+        href={REPO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(row, 'hover:text-fg')}
+      >
         <GitHubMark className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">GitHub</span>
       </a>
