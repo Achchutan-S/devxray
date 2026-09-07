@@ -211,13 +211,21 @@ body contains the sentinel. That is how the table in §4 was produced.
 
 ## 14. Known limitations
 
-- No licence file is declared. The repository is public and readable, so the
-  code is auditable, but it is **source-available, not formally open source**,
-  and third parties cannot assume a right to self-host.
 - No SRI, no signed builds, no published SBOM, no third-party audit.
 - No SSO, no admin controls, no audit logging (the last would require the
   telemetry the project deliberately does not have).
 - No compliance certifications of any kind.
+- No commercial support, SLA or maintenance commitment. The MIT License under
+  which the source is released explicitly disclaims warranty.
+
+Licensing is no longer a limitation. The project's own source is released under
+the **MIT License** (`LICENSE` at the repository root), so third parties may use,
+modify, distribute and self-host it. Bundled dependencies are unaffected by that
+and keep their own licences: everything reaching the browser is permissive (MIT,
+ISC, BSD-3-Clause, CC0-1.0), with `dompurify` offered as **MPL-2.0 OR
+Apache-2.0** — taking it under Apache-2.0 avoids MPL-2.0's file-level copyleft.
+`argparse` (Python-2.0) is present in the install tree but is used only by
+`sql-formatter`'s CLI entry point and is never bundled.
 
 ## 15. Claims that are intentionally NOT made
 
@@ -229,7 +237,11 @@ Do not add these to the product, in marketing copy or anywhere else:
   statement is that *the application does not transmit your data*; the browser,
   the clipboard, extensions and any link you share are separate matters
 - ❌ "Zero network requests" — loading the app is itself a network request
-- ❌ "Open source" while no licence exists — say "publicly readable source"
+- ❌ "Fully open source" as a claim about the *whole shipped bundle* — the
+  project's own source is MIT licensed, but bundled dependencies stay under
+  their own terms; describe the two separately
+- ❌ "MIT licensed" as though it implied support, warranty, SSO, administration
+  or certification — it implies none of those
 - ❌ SOC 2 / ISO 27001 / HIPAA / GDPR compliance
 - ❌ "Enterprise-ready" / "SSO-ready"
 - ❌ Any specific claim about a competitor's current behaviour

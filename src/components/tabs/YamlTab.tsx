@@ -1,23 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Copy, Eraser, Wand2 } from 'lucide-react';
+import { ArrowLeftRight, Copy, Eraser, Link2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { convert, detectFormat, type ConversionDirection } from '@/utils/formatters/yaml';
+import { consumeSharedState } from '@/utils/shareState';
 
 const TAB_ID = 'yaml';
+
+interface SharedYamlPayload {
+  readonly input: string;
+}
+
+function isSharedYamlPayload(value: unknown): value is SharedYamlPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const LABELS: Record<ConversionDirection, { from: string; to: string; fromLang: string; toLang: string }> = {
   'yaml-to-json': { from: 'YAML', to: 'JSON', fromLang: 'yaml', toLang: 'json' },
@@ -85,13 +84,29 @@ export function YamlTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy, onFormat: handleUseOutput });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedYamlPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared document');
+    }
+  }, []);
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'yaml:swap', label: 'Swap conversion direction', category: 'context' as const, icon: ArrowLeftRight, run: handleSwap },
       { id: 'yaml:use-output', label: 'Move output to input', category: 'context' as const, icon: Wand2, run: handleUseOutput },
       { id: 'yaml:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
+      { id: 'yaml:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleSwap, handleUseOutput, handleCopy],
+    [handleSwap, handleUseOutput, handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -106,6 +121,7 @@ export function YamlTab() {
               <ToolButton icon={ArrowLeftRight} onClick={handleSwap}>
                 Swap
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

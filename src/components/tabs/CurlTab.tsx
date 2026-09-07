@@ -1,18 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Copy, Eraser, FileCode2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, Eraser, FileCode2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import {
   CURL_TARGETS,
@@ -22,7 +12,17 @@ import {
   type ParsedCurl,
 } from '@/utils/formatters/curl';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'curl';
+
+interface SharedCurlPayload {
+  readonly input: string;
+}
+
+function isSharedCurlPayload(value: unknown): value is SharedCurlPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const EXAMPLE = `curl 'https://api.example.com/v1/users' \\
   -X POST \\
@@ -61,12 +61,28 @@ export function CurlTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedCurlPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared command');
+    }
+  }, []);
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'curl:copy', label: 'Copy generated code', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'curl:example', label: 'Load example command', category: 'context' as const, icon: FileCode2, run: () => setInput(EXAMPLE) },
+      { id: 'curl:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopy],
+    [handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -83,6 +99,7 @@ export function CurlTab() {
               <ToolButton icon={FileCode2} onClick={() => setInput(EXAMPLE)}>
                 Example
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

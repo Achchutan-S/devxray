@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeftRight, Copy, Eraser } from 'lucide-react';
+import { ArrowLeftRight, Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   InlineError,
@@ -12,7 +12,7 @@ import {
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
@@ -97,12 +97,19 @@ export function Base64Tab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy });
 
+  const sharePayload = useMemo(() => ({ input, mode }), [input, mode]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'base64:swap', label: 'Swap encode / decode', category: 'context' as const, icon: ArrowLeftRight, run: handleSwap },
       { id: 'base64:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
+      { id: 'base64:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleSwap, handleCopy],
+    [handleSwap, handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -153,7 +160,7 @@ export function Base64Tab() {
               <ToolButton icon={ArrowLeftRight} onClick={handleSwap} disabled={input === ''}>
                 {direction === 'encode' ? 'Decode →' : '← Encode'}
               </ToolButton>
-              <ShareButton tab={TAB_ID} data={{ input, mode }} contentLength={input.length} />
+              <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

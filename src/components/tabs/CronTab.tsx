@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy } from 'lucide-react';
+import { Copy, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useDebounce, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import {
@@ -91,6 +91,12 @@ export function CronTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopyDescription });
 
+  const sharePayload = useMemo(() => ({ input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'cron:copy', label: 'Copy description', category: 'context' as const, icon: Copy, run: handleCopyDescription },
@@ -100,8 +106,9 @@ export function CronTab() {
         category: 'context' as const,
         run: () => setInput(preset.expression),
       })),
+      { id: 'cron:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopyDescription],
+    [handleCopyDescription, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -123,7 +130,7 @@ export function CronTab() {
           <ToolButton icon={Copy} onClick={handleCopyDescription} disabled={description === null}>
             Copy
           </ToolButton>
-          <ShareButton tab={TAB_ID} data={{ input }} contentLength={input.length} />
+          <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
         </div>
         <div className="flex flex-wrap gap-1.5">
           {CRON_PRESETS.map((preset) => (

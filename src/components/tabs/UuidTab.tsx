@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Copy, RefreshCw, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, Link2, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, IconButton, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { consumeSharedState } from '@/utils/shareState';
 import {
@@ -79,12 +79,19 @@ export function UuidTab() {
 
   useTabHotkeys({ onFormat: handleGenerate, onCopyOutput: handleCopyAll });
 
+  const sharePayload = useMemo(() => ({ type, count }), [type, count]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: 0,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'uuid:generate', label: 'Generate new values', category: 'context' as const, icon: RefreshCw, run: handleGenerate },
       { id: 'uuid:copy-all', label: 'Copy all values', category: 'context' as const, icon: Copy, run: handleCopyAll },
+      { id: 'uuid:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleGenerate, handleCopyAll],
+    [handleGenerate, handleCopyAll, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -153,7 +160,7 @@ export function UuidTab() {
               Generate
             </ToolButton>
             <IconButton icon={Trash2} label="Clear" onClick={() => setResults([])} disabled={results.length === 0} />
-            <ShareButton tab={TAB_ID} data={{ type, count }} contentLength={0} />
+            <ShareButton tab={TAB_ID} data={sharePayload} contentLength={0} />
           </div>
         </div>
       </div>

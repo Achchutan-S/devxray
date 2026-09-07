@@ -1,15 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, Eraser } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Check, Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Pane, PaneBar, PaneBody, PaneHeader, TabShell, IconButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useTabHotkeys } from '@/hooks';
+import { IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell } from '@/components/common';
+import { useCommandPaletteCommands, useDebounce, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { HASH_ALGORITHMS, computeHash, type HashAlgorithm } from '@/utils/formatters/hash';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
+import { consumeSharedState } from '@/utils/shareState';
 
 const TAB_ID = 'hash';
+
+interface SharedHashPayload {
+  readonly input: string;
+}
+
+function isSharedHashPayload(value: unknown): value is SharedHashPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 export function HashTab() {
   const [input, setInput] = useState('');
@@ -25,6 +34,12 @@ export function HashTab() {
   const lastRecordedInput = useRef<string>('');
 
   useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedHashPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared text');
+      return;
+    }
     const restored = consumeHistoryRestore(TAB_ID);
     if (restored !== null) {
       setInput(restored);
@@ -70,16 +85,25 @@ export function HashTab() {
 
   useTabHotkeys({ onCopyOutput: () => copyHash('SHA-256') });
 
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
-    () =>
-      HASH_ALGORITHMS.map((algorithm) => ({
+    () => [
+      ...HASH_ALGORITHMS.map((algorithm) => ({
         id: `hash:copy-${algorithm}`,
         label: `Copy ${algorithm}`,
         category: 'context' as const,
         icon: Copy,
         run: () => copyHash(algorithm),
       })),
-    [copyHash],
+      { id: 'hash:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
+    ],
+    [copyHash, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -88,7 +112,12 @@ export function HashTab() {
       <Pane bordered>
         <PaneHeader
           title="Input"
-          actions={<IconButton icon={Eraser} label="Clear" onClick={() => setInput('')} disabled={input === ''} />}
+          actions={
+              <>
+                <IconButton icon={Eraser} label="Clear" onClick={() => setInput('')} disabled={input === ''} />
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
+              </>
+            }
         />
         <PaneBody className="p-3">
           <textarea

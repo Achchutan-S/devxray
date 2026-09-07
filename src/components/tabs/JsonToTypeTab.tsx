@@ -1,18 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Copy, Eraser, FileCode2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, Eraser, FileCode2, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useTabHotkeys } from '@/hooks';
+import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useDebounce, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -22,7 +12,17 @@ import {
   type TargetLanguage,
 } from '@/utils/formatters/jsonToType';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'jsontype';
+
+interface SharedJsonToTypePayload {
+  readonly input: string;
+}
+
+function isSharedJsonToTypePayload(value: unknown): value is SharedJsonToTypePayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const EXAMPLE = JSON.stringify(
   {
@@ -70,12 +70,28 @@ export function JsonToTypeTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedJsonToTypePayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared sample');
+    }
+  }, []);
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'jsontype:copy', label: 'Copy generated types', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'jsontype:example', label: 'Load example JSON', category: 'context' as const, icon: FileCode2, run: () => setInput(EXAMPLE) },
+      { id: 'jsontype:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopy],
+    [handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -92,6 +108,7 @@ export function JsonToTypeTab() {
               <ToolButton icon={FileCode2} onClick={() => setInput(EXAMPLE)}>
                 Example
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

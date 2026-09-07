@@ -36,5 +36,11 @@ module.exports = {
       files: ['src/**/*.test.ts'],
       rules: { 'no-console': 'off' },
     },
+    {
+      files: ['scripts/**/*.ts'],
+      env: { node: true, browser: false },
+      parserOptions: { project: null },
+      rules: { 'no-console': 'off' },
+    },
   ],
 };

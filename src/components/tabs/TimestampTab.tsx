@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Clock, Copy, Eraser, Wand2 } from 'lucide-react';
+import { Clock, Copy, Eraser, Link2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InlineError, Pane, PaneBar, PaneBody, PaneHeader, TabShell, IconButton, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import {
@@ -15,7 +15,17 @@ import {
   type TimestampConversions,
 } from '@/utils/formatters/timestamp';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'timestamp';
+
+interface SharedTimestampPayload {
+  readonly input: string;
+}
+
+function isSharedTimestampPayload(value: unknown): value is SharedTimestampPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const ROWS: readonly { key: keyof TimestampConversions; label: string }[] = [
   { key: 'unixSeconds', label: 'Unix seconds' },
@@ -97,12 +107,28 @@ export function TimestampTab() {
 
   useTabHotkeys({ onFormat: handleConvert });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedTimestampPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared timestamp');
+    }
+  }, []);
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'timestamp:now', label: 'Use current time', category: 'context' as const, icon: Clock, run: handleNow },
       { id: 'timestamp:convert', label: 'Convert', category: 'context' as const, icon: Wand2, run: handleConvert },
+      { id: 'timestamp:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleNow, handleConvert],
+    [handleNow, handleConvert, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -152,6 +178,7 @@ export function TimestampTab() {
             Now
           </ToolButton>
           <IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />
+          <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
         </div>
         {kindLabel && <p className="text-[11px] text-fg-subtle">{kindLabel}</p>}
       </div>

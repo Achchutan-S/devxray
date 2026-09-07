@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Eraser, Plus, Trash2 } from 'lucide-react';
+import { Copy, Eraser, Link2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   InlineError,
@@ -12,7 +12,7 @@ import {
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { consumeSharedState } from '@/utils/shareState';
 import {
@@ -81,9 +81,18 @@ export function UrlTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy });
 
+  const sharePayload = useMemo(() => ({ input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
   const commandGetter = useCallback(
-    () => [{ id: 'url:copy', label: 'Copy URL', category: 'context' as const, icon: Copy, run: handleCopy }],
-    [handleCopy],
+    () => [
+      { id: 'url:copy', label: 'Copy URL', category: 'context' as const, icon: Copy, run: handleCopy },
+      { id: 'url:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
+    ],
+    [handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -104,7 +113,7 @@ export function UrlTab() {
           <ToolButton icon={Copy} onClick={handleCopy} disabled={input === ''}>
             Copy
           </ToolButton>
-          <ShareButton tab={TAB_ID} data={{ input }} contentLength={input.length} />
+          <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
         </div>
         {components?.inferredScheme === true && (
           <p className="mt-1.5 text-xs text-fg-subtle">Assumed https:// — no scheme was given.</p>

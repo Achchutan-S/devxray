@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Copy, Plus, Shuffle, Sparkles, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, Link2, Plus, Shuffle, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   CodeEditor,
@@ -13,7 +13,7 @@ import {
   TabShell,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeSharedState } from '@/utils/shareState';
@@ -128,16 +128,22 @@ export function MockDataTab() {
 
   useTabHotkeys({ onFormat: handleGenerate, onCopyOutput: handleCopy });
 
+  const sharePayload = useMemo(() => ({ fields, count: clampCount(count), outputFormat }), [fields, count, outputFormat]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: JSON.stringify(sharePayload).length,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'mockdata:generate', label: 'Generate records', category: 'context' as const, icon: Sparkles, run: handleGenerate },
       { id: 'mockdata:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
+      { id: 'mockdata:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleGenerate, handleCopy],
+    [handleGenerate, handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
-  const sharePayload = { fields, count: clampCount(count), outputFormat };
 
   return (
     <TabShell>

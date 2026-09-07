@@ -1,18 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
-import { Copy, Eraser, FileCode2, Minimize2, Wand2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, Eraser, FileCode2, Link2, Minimize2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -24,7 +14,17 @@ import {
   type SqlDialect,
 } from '@/utils/formatters/sql';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'sql';
+
+interface SharedSqlPayload {
+  readonly input: string;
+}
+
+function isSharedSqlPayload(value: unknown): value is SharedSqlPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const EXAMPLE = `select u.id, u.name, count(o.id) as order_count
 from users u left join orders o on o.user_id = u.id
@@ -79,14 +79,30 @@ export function SqlTab() {
     onCopyOutput: handleCopy,
   });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedSqlPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared SQL');
+    }
+  }, []);
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'sql:format', label: 'Format SQL', category: 'context' as const, icon: Wand2, run: () => setMinified(false) },
       { id: 'sql:minify', label: 'Minify SQL', category: 'context' as const, icon: Minimize2, run: () => setMinified(true) },
       { id: 'sql:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'sql:example', label: 'Load example query', category: 'context' as const, icon: FileCode2, run: () => setInput(EXAMPLE) },
+      { id: 'sql:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopy],
+    [handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -101,6 +117,7 @@ export function SqlTab() {
               <ToolButton icon={FileCode2} onClick={() => setInput(EXAMPLE)}>
                 Example
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

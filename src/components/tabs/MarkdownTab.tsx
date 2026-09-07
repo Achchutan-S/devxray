@@ -1,15 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Eraser } from 'lucide-react';
+import { Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Pane, PaneBar, PaneBody, PaneHeader, TabShell, IconButton, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { renderMarkdown } from '@/utils/formatters/markdown';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
+import { consumeSharedState } from '@/utils/shareState';
 
 const TAB_ID = 'markdown';
+
+interface SharedMarkdownPayload {
+  readonly input: string;
+}
+
+function isSharedMarkdownPayload(value: unknown): value is SharedMarkdownPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 export function MarkdownTab() {
   const [input, setInput] = useState('');
@@ -18,6 +27,12 @@ export function MarkdownTab() {
   const lastRecordedInput = useRef<string>('');
 
   useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedMarkdownPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared document');
+      return;
+    }
     const restored = consumeHistoryRestore(TAB_ID);
     if (restored !== null) {
       setInput(restored);
@@ -54,11 +69,19 @@ export function MarkdownTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopyHtml });
 
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'markdown:copy-html', label: 'Copy sanitized HTML', category: 'context' as const, icon: Copy, run: handleCopyHtml },
+      { id: 'markdown:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopyHtml],
+    [handleCopyHtml, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -67,7 +90,12 @@ export function MarkdownTab() {
       <Pane bordered>
         <PaneHeader
           title="Markdown"
-          actions={<IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />}
+          actions={
+              <>
+                <IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
+              </>
+            }
         />
         <PaneBody>
           <textarea

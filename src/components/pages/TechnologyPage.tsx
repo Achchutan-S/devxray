@@ -82,6 +82,23 @@ const GROUPS: readonly { title: string; note?: string; deps: readonly Dep[] }[] 
   },
 ];
 
+/**
+ * Licences of everything that ships to the browser, read from the installed
+ * package metadata rather than restated from memory. Grouped by licence so the
+ * one entry that is not a plain permissive licence stays visible.
+ */
+const DEPENDENCY_LICENCES: readonly { licence: string; packages: string }[] = [
+  {
+    licence: 'MIT',
+    packages:
+      'react, react-dom, scheduler, monaco-editor, @monaco-editor/react, @monaco-editor/loader, state-local, zustand, use-sync-external-store, sonner, graphql, prettier, marked, sql-formatter, nearley, cronstrue, @faker-js/faker, uuid, ulid, nanoid, lz-string, loose-envify, js-tokens, randexp, ret, discontinuous-range, commander',
+  },
+  { licence: 'ISC', packages: 'lucide-react, yaml' },
+  { licence: 'BSD-3-Clause', packages: 'moo' },
+  { licence: 'CC0-1.0 (public domain dedication)', packages: 'railroad-diagrams' },
+  { licence: 'MPL-2.0 OR Apache-2.0 (dual)', packages: 'dompurify' },
+];
+
 export function TechnologyPage({ onNavigate, onBack }: Props) {
   return (
     <PageShell
@@ -153,6 +170,75 @@ export function TechnologyPage({ onNavigate, onBack }: Props) {
           What this does not rule out is supply-chain risk. Any JavaScript project depends
           on packages that could, in a future version, be compromised. Versions are pinned
           through a lockfile, which limits exposure but does not eliminate it.
+        </p>
+      </Section>
+
+      <Section
+        title="Licensing"
+        lead="What you are allowed to do with this code, and what the dependencies bring with them."
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-fg-muted">
+          <p>
+            <strong className="text-fg">Dev X-Ray&rsquo;s own source code is licensed
+            under the MIT License.</strong> The full text is in the{' '}
+            <code className="font-mono text-xs text-accent">LICENSE</code> file at the
+            root of the repository.
+          </p>
+          <p>
+            The repository is public, so the implementation is inspectable: every claim
+            on the Privacy and Security pages can be checked against the code that makes
+            it, rather than taken on trust.
+          </p>
+          <p>
+            Under the MIT License you may use, modify, distribute and self-host Dev X-Ray,
+            including commercially, subject to its conditions — the copyright notice and
+            permission notice must be retained in copies or substantial portions of the
+            software, and the software is provided &ldquo;as is&rdquo;, without warranty
+            of any kind.
+          </p>
+        </div>
+
+        <Callout title="Dependencies keep their own licences">
+          The MIT License covers this project&rsquo;s source. It does not relicense the
+          third-party packages compiled into the bundle — each of those stays under the
+          licence its authors chose, and those terms travel with any copy you
+          redistribute.
+        </Callout>
+
+        <div className="mt-4 overflow-hidden rounded border border-line">
+          {DEPENDENCY_LICENCES.map((row, i) => (
+            <div
+              key={row.licence}
+              className={`flex flex-col gap-0.5 bg-surface px-3 py-2 sm:flex-row sm:gap-4 ${
+                i > 0 ? 'border-t border-line' : ''
+              }`}
+            >
+              <code className="w-full shrink-0 font-mono text-xs text-accent sm:w-56">
+                {row.licence}
+              </code>
+              <span className="text-sm text-fg-muted">{row.packages}</span>
+            </div>
+          ))}
+        </div>
+
+        <p className="mt-3 text-sm leading-relaxed text-fg-muted">
+          Everything that reaches the browser is permissively licensed. The one entry
+          worth reading twice is <code className="font-mono text-xs text-accent">dompurify</code>,
+          which is offered under <em>either</em> MPL-2.0 or Apache-2.0; taking it under
+          Apache-2.0 avoids MPL-2.0&rsquo;s file-level copyleft entirely. Nothing bundled
+          here is under the GPL or any other licence that would reach back into this
+          project&rsquo;s own terms. One dependency in the install tree,{' '}
+          <code className="font-mono text-xs text-accent">argparse</code> (Python-2.0), is
+          used only by <code className="font-mono text-xs text-accent">sql-formatter</code>&rsquo;s
+          command-line entry point and is never bundled into the application.
+        </p>
+
+        <p className="mt-3 text-sm leading-relaxed text-fg-muted">
+          The icons are <code className="font-mono text-xs text-accent">lucide-react</code>{' '}
+          (ISC), compiled in as SVG components. No web fonts are bundled or fetched: the
+          interface uses the system font stack, and the only font file in the build is the
+          icon font Monaco ships inside its own MIT-licensed package. The application
+          icons are original SVGs belonging to this project.
         </p>
       </Section>
 

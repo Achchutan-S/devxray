@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Eraser, FileCode2, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
+import { Copy, Eraser, FileCode2, Link2, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  FieldSelector,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, useUndoRedo } from '@/hooks';
+import { CodeEditor, FieldSelector, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -28,7 +17,17 @@ import {
   type XmlStats,
 } from '@/utils/formatters/xml';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'xml';
+
+interface SharedXMLPayload {
+  readonly input: string;
+}
+
+function isSharedXMLPayload(value: unknown): value is SharedXMLPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const EMPTY_STATS: XmlStats = { elementCount: 0, maxDepth: 0, attributeCount: 0, distinctPaths: 0 };
 
@@ -149,14 +148,33 @@ export function XMLTab() {
     onRedo: history.redo,
   });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedXMLPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared document');
+    }
+    // Mount-once: `setInput` closes over the undo/redo stack and changes
+    // identity every render, and both registries are consume-once anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const sharePayload = useMemo(() => ({ input: present.input }), [present.input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: present.input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'xml:format', label: 'Format XML', category: 'context' as const, icon: Wand2, run: handleFormat },
       { id: 'xml:minify', label: 'Toggle minified output', category: 'context' as const, icon: Minimize2, run: handleMinify },
       { id: 'xml:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'xml:example', label: 'Load example document', category: 'context' as const, icon: FileCode2, run: () => setInput(EXAMPLE) },
+      { id: 'xml:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleFormat, handleMinify, handleCopy, setInput],
+    [handleFormat, handleMinify, handleCopy, setInput, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -187,6 +205,7 @@ export function XMLTab() {
               <ToolButton icon={Wand2} variant="primary" onClick={handleFormat} disabled={present.input === ''}>
                 Format
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={present.input.length} />
             </>
           }
         />

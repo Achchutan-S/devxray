@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Columns2, Copy, Eraser, GitCompare, Rows2 } from 'lucide-react';
+import { Columns2, Copy, Eraser, GitCompare, Link2, Rows2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   CodeEditor,
@@ -8,16 +8,29 @@ import {
   PaneBar,
   PaneBody,
   PaneHeader,
+  ShareButton,
   TabShell,
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { useUIStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { summariseDiff } from '@/utils/formatters/diffStats';
+import { consumeSharedState } from '@/utils/shareState';
 
 const TAB_ID = 'diff';
+
+interface SharedDiffPayload {
+  readonly original: string;
+  readonly modified: string;
+}
+
+function isSharedDiffPayload(value: unknown): value is SharedDiffPayload {
+  if (typeof value !== 'object' || value === null) return false;
+  const r = value as Record<string, unknown>;
+  return typeof r.original === 'string' && typeof r.modified === 'string';
+}
 
 const LANGUAGES = ['plaintext', 'json', 'graphql', 'yaml', 'xml', 'sql', 'markdown', 'javascript'] as const;
 
@@ -73,12 +86,29 @@ export function DiffTab() {
     onCopyOutput: () => copy(modified, 'modified'),
   });
 
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedDiffPayload(shared)) {
+      setOriginal(shared.original);
+      setModified(shared.modified);
+      toast.success('Loaded shared comparison');
+    }
+  }, []);
+
+  const sharePayload = useMemo(() => ({ original, modified }), [original, modified]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: original.length + modified.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'diff:compare', label: 'Compare', category: 'context' as const, icon: GitCompare, run: handleCompare },
       { id: 'diff:clear', label: 'Clear both sides', category: 'context' as const, icon: Eraser, run: handleClear },
+      { id: 'diff:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCompare, handleClear],
+    [handleCompare, handleClear, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -148,6 +178,11 @@ export function DiffTab() {
                 onClick={() => setSideBySide((v) => !v)}
               />
               <IconButton icon={Eraser} label="Clear" onClick={handleClear} />
+              <ShareButton
+                tab={TAB_ID}
+                data={sharePayload}
+                contentLength={original.length + modified.length}
+              />
               <ToolButton icon={GitCompare} variant="primary" onClick={handleCompare}>
                 Compare
               </ToolButton>

@@ -260,4 +260,23 @@ Architectural decisions and their rationale are in [ARCHITECTURE.md](ARCHITECTUR
 
 ## Licence
 
-Not yet chosen.
+Dev X-Ray is open source software licensed under the MIT License.
+
+The full text is in [LICENSE](./LICENSE). You may use, modify, distribute and
+self-host it, including commercially, subject to the MIT License's conditions —
+the copyright notice and permission notice must be retained in copies or
+substantial portions of the software, and it is provided "as is", without
+warranty.
+
+The MIT License covers Dev X-Ray's own source code. Third-party dependencies
+keep their own licences, which travel with them into the built bundle. Every
+dependency that ships to the browser is permissively licensed (MIT, ISC,
+BSD-3-Clause, CC0-1.0), with one exception worth knowing about: `dompurify` is
+dual-licensed **MPL-2.0 OR Apache-2.0**, so a redistributor may take it under
+Apache-2.0 and avoid MPL-2.0's file-level copyleft. Anyone redistributing a
+built `dist/` should carry the upstream licence notices with it.
+
+MIT is a licence, not a support agreement. It grants no warranty, no
+maintenance commitment and no compliance certification — see
+[Self-hosting](#deployment) and the in-app `/enterprise` page for what does and
+does not exist.

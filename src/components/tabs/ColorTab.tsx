@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Copy, X } from 'lucide-react';
+import { Check, Copy, Link2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import {
@@ -97,6 +97,12 @@ export function ColorTab() {
 
   useTabHotkeys({ onCopyOutput: () => conversions && handleCopy('HEX', conversions.hex) });
 
+  const sharePayload = useMemo(() => ({ hex: conversions?.hex ?? input }), [conversions, input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
   const commandGetter = useCallback(
     () => [
       {
@@ -106,12 +112,12 @@ export function ColorTab() {
         icon: Copy,
         run: () => conversions && handleCopy('HEX', conversions.hex),
       },
+      { id: 'color:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [conversions, handleCopy],
+    [conversions, handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
-  const sharePayload = { hex: conversions?.hex ?? input };
 
   return (
     <TabShell split>

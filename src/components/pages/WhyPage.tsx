@@ -124,7 +124,7 @@ export function WhyPage({ onNavigate, onBack }: Props) {
             <li>Genuine offline operation, including the bundled editor and tools you have never opened.</li>
             <li>One integrated workspace with shared history, share links and file routing, instead of 23 separate sites.</li>
             <li>The Mapper, which does not have an obvious equivalent in the utility-bundle category.</li>
-            <li>Publicly readable source, so the privacy claims can be checked against the implementation.</li>
+            <li>Publicly readable, MIT-licensed source, so the privacy claims can be checked against the implementation — and so you can self-host it rather than trust a deployment.</li>
           </ul>
           <p>
             The philosophy and the integrated experience are the differentiator. The

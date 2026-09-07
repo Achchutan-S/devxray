@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Eraser, Wand2 } from 'lucide-react';
+import { Copy, Eraser, Link2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   InlineError,
@@ -12,7 +12,7 @@ import {
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useDebounce, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
@@ -212,12 +212,19 @@ export function RegexTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopyReplacement, onFormat: handleReplace });
 
+  const sharePayload = useMemo(() => ({ pattern, flags: flagString, testString, replacement }), [pattern, flagString, testString, replacement]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: JSON.stringify(sharePayload).length,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'regex:replace', label: 'Apply replacement', category: 'context' as const, icon: Wand2, run: handleReplace },
       { id: 'regex:copy', label: 'Copy replacement', category: 'context' as const, icon: Copy, run: handleCopyReplacement },
+      { id: 'regex:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleReplace, handleCopyReplacement],
+    [handleReplace, handleCopyReplacement, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -226,7 +233,6 @@ export function RegexTab() {
     [analysis, testString],
   );
 
-  const sharePayload = { pattern, flags: flagString, testString, replacement };
 
   return (
     <TabShell>

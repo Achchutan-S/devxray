@@ -1,7 +1,5 @@
-import { useCallback } from 'react';
 import { Link2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { copyShareLink, isShareDisabled } from '@/utils/shareState';
+import { useShareAction } from '@/hooks/useShareAction';
 import { ToolButton } from './Buttons';
 
 interface ShareButtonProps {
@@ -15,22 +13,17 @@ interface ShareButtonProps {
  * Copies a self-contained share link — the tool's state compressed into the URL
  * hash — to the clipboard. Nothing is uploaded anywhere; the link only works
  * because the receiving browser decodes the hash itself.
+ *
+ * The behaviour lives in `useShareAction` so the command palette can trigger
+ * exactly the same action rather than a parallel implementation.
  */
 export function ShareButton({ tab, data, contentLength }: ShareButtonProps) {
-  const disabled = isShareDisabled(contentLength);
-
-  const handleShare = useCallback(() => {
-    void copyShareLink({ tab, data }).then((result) => {
-      if (result === 'copied') toast.success('Share link copied');
-      else if (result === 'copied_long') toast.warning('Share link copied (it’s a long one)');
-      else toast.error('Could not access the clipboard');
-    });
-  }, [tab, data]);
+  const { share, disabled } = useShareAction({ tab, data, contentLength });
 
   return (
     <ToolButton
       icon={Link2}
-      onClick={handleShare}
+      onClick={share}
       disabled={disabled}
       title={disabled ? 'Too large to share as a link' : 'Copy a shareable link'}
     >

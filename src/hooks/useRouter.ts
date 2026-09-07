@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   metaForRoute,
   pathForPage,
@@ -74,27 +74,30 @@ export function useRouter(): RouterState {
     return route.kind === 'page' ? route.pageId : null;
   });
 
-  // Adopt the entry URL once on boot. A path naming a tool wins over the
-  // persisted `lastActiveTab`, so a link to /jwt always opens JWT.
+  // A tool route is already adopted by the UI store's initial state (see
+  // useUIStore.initialTab), so by the first render `activeTab` is correct and
+  // the sync effect below cannot clobber it. All that is left here is
+  // normalising `/` to the tool actually being shown, without adding a history
+  // entry the user would have to press Back through.
+  const booted = useRef(false);
   useEffect(() => {
     const route = currentRoute();
-    if (route.kind === 'tool') setActiveTab(route.tabId);
-    applyDocumentMeta(route);
-    // Replace rather than push: the entry URL should not become a back step,
-    // and `/` needs normalising to the tool actually being shown.
     if (route.kind === 'home') {
       const path = pathForTab(useUIStore.getState().activeTab);
       window.history.replaceState(null, '', path + window.location.search);
       applyDocumentMeta(resolveRoute(path));
+    } else {
+      applyDocumentMeta(route);
     }
+    booted.current = true;
     // Runs once: subsequent syncing is handled by the effects below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tool changes push a new URL. Guarded so that a change *caused by* popstate
-  // does not immediately push the same entry back on.
+  // Tool changes push a new URL. Skipped on the very first run so the entry
+  // URL is never rewritten from state that has not been reconciled yet.
   useEffect(() => {
     if (page !== null) return;
+    if (!booted.current) return;
     const desired = pathForTab(activeTab);
     if (window.location.pathname !== desired) {
       window.history.pushState(null, '', desired + window.location.search);

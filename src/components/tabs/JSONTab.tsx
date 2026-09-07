@@ -1,30 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Braces,
-  Copy,
-  Eraser,
-  GitCompare,
-  ListTree,
-  Minimize2,
-  Redo2,
-  Undo2,
-  Wand2,
-} from 'lucide-react';
+import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  FieldSelector,
-  InlineError,
-  JsonTreeView,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, useUndoRedo } from '@/hooks';
+import { CodeEditor, FieldSelector, IconButton, InlineError, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
 import { useHistoryStore, useUIStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
@@ -43,8 +21,17 @@ import {
   type KeyFilterMode,
 } from '@/utils/formatters/json';
 import type { JsonWorkerRequest, JsonWorkerResponse } from '@/workers/jsonParser.worker';
+import { consumeSharedState } from '@/utils/shareState';
 
 const TAB_ID = 'json';
+
+interface SharedJSONPayload {
+  readonly input: string;
+}
+
+function isSharedJSONPayload(value: unknown): value is SharedJSONPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 interface Snapshot {
   readonly input: string;
@@ -253,14 +240,33 @@ export function JSONTab() {
     onRedo: history.redo,
   });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedJSONPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared JSON');
+    }
+    // Mount-once: `setInput` closes over the undo/redo stack and changes
+    // identity every render, and both registries are consume-once anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const sharePayload = useMemo(() => ({ input: present.input }), [present.input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: present.input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'json:format', label: 'Format JSON', category: 'context' as const, icon: Wand2, run: handleFormat },
       { id: 'json:minify', label: 'Minify JSON', category: 'context' as const, icon: Minimize2, run: handleMinify },
       { id: 'json:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'json:compare', label: 'Compare input vs output', category: 'context' as const, icon: GitCompare, run: handleCompare },
+      { id: 'json:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleFormat, handleMinify, handleCopy, handleCompare],
+    [handleFormat, handleMinify, handleCopy, handleCompare, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -290,6 +296,7 @@ export function JSONTab() {
               <ToolButton icon={Wand2} variant="primary" onClick={handleFormat} disabled={present.input === ''}>
                 Format
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={present.input.length} />
             </>
           }
         />

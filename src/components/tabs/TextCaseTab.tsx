@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Eraser } from 'lucide-react';
+import { Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, IconButton, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { TARGET_CASES, convertCase, type TargetCase } from '@/utils/formatters/textcase';
@@ -66,6 +66,12 @@ export function TextCaseTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopy });
 
+  const sharePayload = useMemo(() => ({ input, targetCase, lineByLine }), [input, targetCase, lineByLine]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
   const commandGetter = useCallback(
     () => [
       ...TARGET_CASES.map((c) => ({
@@ -75,12 +81,12 @@ export function TextCaseTab() {
         run: () => setTargetCase(c.id),
       })),
       { id: 'textcase:copy', label: 'Copy result', category: 'context' as const, icon: Copy, run: handleCopy },
+      { id: 'textcase:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopy],
+    [handleCopy, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
-  const sharePayload = { input, targetCase, lineByLine };
 
   return (
     <TabShell split>

@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Clock3,
-  Copy,
-  Eraser,
-  Eye,
-  EyeOff,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-} from 'lucide-react';
+import { Clock3, Copy, Eraser, Eye, EyeOff, Link2, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   InlineError,
@@ -22,7 +13,7 @@ import {
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { consumeSharedState } from '@/utils/shareState';
 import {
@@ -119,12 +110,19 @@ export function JWTTab() {
     onCopyOutput: () => decoded && copyPart('payload', JSON.stringify(decoded.payload, null, 2)),
   });
 
+  const sharePayload = useMemo(() => ({ token }), [token]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: token.length,
+  });
   const commandGetter = useCallback(
     () => [
       { id: 'jwt:verify', label: 'Verify signature', category: 'context' as const, icon: Shield, run: handleVerify },
       { id: 'jwt:clear', label: 'Clear token and secret', category: 'context' as const, icon: Eraser, run: handleClear },
+      { id: 'jwt:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleVerify, handleClear],
+    [handleVerify, handleClear, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -136,7 +134,7 @@ export function JWTTab() {
           actions={
             <>
               <IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={token === ''} />
-              <ShareButton tab={TAB_ID} data={{ token }} contentLength={token.length} />
+              <ShareButton tab={TAB_ID} data={sharePayload} contentLength={token.length} />
             </>
           }
         />

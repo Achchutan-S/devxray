@@ -2,6 +2,7 @@
   "name": "dev-xray",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "description": "Dev X-Ray \u2014 a browser-first developer productivity toolkit. Everything runs locally.",
   "type": "module",
   "engines": {

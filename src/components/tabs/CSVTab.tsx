@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Eraser, Table as TableIcon, Wand2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Eraser, Link2, Table as TableIcon, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InlineError, Pane, PaneBar, PaneBody, PaneHeader, TabShell, IconButton, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
@@ -19,7 +19,17 @@ import {
   type SortDirection,
 } from '@/utils/formatters/csv';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'csv';
+
+interface SharedCSVPayload {
+  readonly input: string;
+}
+
+function isSharedCSVPayload(value: unknown): value is SharedCSVPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 interface SortState {
   column: number;
@@ -38,6 +48,12 @@ export function CSVTab() {
   const addHistory = useHistoryStore((state) => state.addHistory);
 
   useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedCSVPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared data');
+      return;
+    }
     const restored = consumeHistoryRestore(TAB_ID);
     if (restored !== null) {
       setInput(restored);
@@ -127,13 +143,21 @@ export function CSVTab() {
 
   useTabHotkeys({ onFormat: handleParse, onCopyOutput: handleCopyJSON });
 
+  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'csv:parse', label: 'Parse input', category: 'context' as const, icon: TableIcon, run: handleParse },
       { id: 'csv:copy-json', label: 'Copy as JSON', category: 'context' as const, icon: Copy, run: handleCopyJSON },
       { id: 'csv:copy-tsv', label: 'Copy as TSV', category: 'context' as const, icon: Copy, run: handleCopyTSV },
+      { id: 'csv:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleParse, handleCopyJSON, handleCopyTSV],
+    [handleParse, handleCopyJSON, handleCopyTSV, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -208,6 +232,7 @@ export function CSVTab() {
               <ToolButton icon={Copy} onClick={handleCopyTSV} disabled={table === null}>
                 Copy TSV
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
             </>
           }
         />

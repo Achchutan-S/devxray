@@ -72,7 +72,7 @@ const THREATS: readonly ThreatRow[] = [
   {
     threat: 'Compromised deployment serving modified code',
     mitigation:
-      'The source is public and can be compared against what is served. Static hosting has a small attack surface — there is no server-side application to compromise.',
+      'The source is public and MIT licensed, so it can be compared against what is served — and rebuilt and self-hosted if you would rather not depend on someone else’s deployment. Static hosting has a small attack surface: there is no server-side application to compromise.',
     residual:
       'A compromised host could serve altered JavaScript. There is currently no subresource-integrity or signed-build mechanism.',
   },

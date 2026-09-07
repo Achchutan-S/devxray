@@ -1,19 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Download, Eraser, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
+import { Copy, Download, Eraser, Link2, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  CodeEditor,
-  FieldSelector,
-  InlineError,
-  Pane,
-  PaneBar,
-  PaneBody,
-  PaneHeader,
-  TabShell,
-  IconButton,
-  ToolButton,
-} from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, useUndoRedo } from '@/hooks';
+import { CodeEditor, FieldSelector, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -35,7 +24,17 @@ import {
   type ExportTarget,
 } from '@/utils/formatters/graphqlExport';
 
+import { consumeSharedState } from '@/utils/shareState';
+
 const TAB_ID = 'graphql';
+
+interface SharedGraphQLPayload {
+  readonly input: string;
+}
+
+function isSharedGraphQLPayload(value: unknown): value is SharedGraphQLPayload {
+  return typeof value === 'object' && value !== null && typeof (value as { input?: unknown }).input === 'string';
+}
 
 const EMPTY_STATS: GQLStats = {
   maxDepth: 0,
@@ -230,14 +229,33 @@ export function GraphQLTab() {
     onRedo: history.redo,
   });
 
+
+  useEffect(() => {
+    const shared = consumeSharedState(TAB_ID);
+    if (isSharedGraphQLPayload(shared)) {
+      setInput(shared.input);
+      toast.success('Loaded shared query');
+    }
+    // Mount-once: `setInput` closes over the undo/redo stack and changes
+    // identity every render, and both registries are consume-once anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const sharePayload = useMemo(() => ({ input: present.input }), [present.input]);
+  const { share: shareLink } = useShareAction({
+    tab: TAB_ID,
+    data: sharePayload,
+    contentLength: present.input.length,
+  });
+
   const commandGetter = useCallback(
     () => [
       { id: 'graphql:format', label: 'Format query', category: 'context' as const, icon: Wand2, run: handleFormat },
       { id: 'graphql:minify', label: 'Minify query', category: 'context' as const, icon: Minimize2, run: handleMinify },
       { id: 'graphql:literals', label: 'Extract literals to variables', category: 'context' as const, icon: Download, run: handleDetectLiterals },
       { id: 'graphql:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopyOutput },
+      { id: 'graphql:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleFormat, handleMinify, handleDetectLiterals, handleCopyOutput],
+    [handleFormat, handleMinify, handleDetectLiterals, handleCopyOutput, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -267,6 +285,7 @@ export function GraphQLTab() {
               <ToolButton icon={Wand2} variant="primary" onClick={handleFormat} disabled={present.input === ''}>
                 Format
               </ToolButton>
+                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={present.input.length} />
             </>
           }
         />

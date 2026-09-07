@@ -340,6 +340,13 @@ export function PrivacyPage({ onNavigate, onBack }: Props) {
           worth reporting.
         </Callout>
 
+        <p className="mt-3 text-sm leading-relaxed text-fg-muted">
+          If watching the network is not enough, read the code. The source is public and
+          MIT licensed, which means you are also free to build it yourself and serve your
+          own copy — the strongest available check that what runs in your browser is what
+          the repository says it is.
+        </p>
+
         <div className="mt-4 rounded border border-line bg-surface p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-medium text-fg">Fake test payload</p>
