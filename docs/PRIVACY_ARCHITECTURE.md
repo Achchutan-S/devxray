@@ -209,9 +209,35 @@ Automated equivalent: drive a production build over the Chrome DevTools
 Protocol, record `Network.requestWillBeSent`, and assert that no request URL or
 body contains the sentinel. That is how the table in §4 was produced.
 
+## 13b. Resource budgets
+
+Local processing means the tab absorbs every workload itself. Ceilings are
+collected in `LIMITS` (`src/utils/constants.ts`) and enforced in the pure
+formatter layer, so a worker and the main thread apply the same rule.
+
+- **Input** is measured in UTF-8 bytes, not `String.length`, so multi-byte text
+  is charged what it actually costs. Over-limit input is refused with the size
+  and the ceiling; it is never truncated and presented as complete.
+- **Rendering** is bounded separately from processing. A 12 MB CSV parses in
+  ~170 ms and yields ~400,000 rows; the table renders a 1,000-row window while
+  copy and export keep every row.
+- **Regex** keeps its existing shape: syntax validated on the main thread,
+  execution in a worker terminated after 2.5 s, worker recreated on next use.
+- **Persistence** stays bounded (100 history entries, 2,000 chars/field, 8,000
+  total; Mapper input over 300,000 chars is session-only). Quota failures are
+  swallowed and reported once rather than propagating out of a state update.
+- **File drop** is rejected on `File.size` before any read.
+
+These bound measured workloads. They are not a security boundary and not a
+guarantee: a pathological input under a ceiling can still be slow.
+
 ## 14. Known limitations
 
 - No SRI, no signed builds, no published SBOM, no third-party audit.
+- Resource ceilings bound the workloads that were measured, not every possible
+  input. A single flat YAML mapping with tens of thousands of keys is quadratic
+  in the upstream parser and can still be slow while sitting under the byte
+  ceiling.
 - No SSO, no admin controls, no audit logging (the last would require the
   telemetry the project deliberately does not have).
 - No compliance certifications of any kind.

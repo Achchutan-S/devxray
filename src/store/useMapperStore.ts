@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from './safeStorage';
 import type { MappingRow } from '@/utils/mapper/resolve';
 import { CONFIG, STORAGE_KEYS } from '@/utils/constants';
 
@@ -44,7 +45,7 @@ export const useMapperStore = create<MapperState>()(
     }),
     {
       name: STORAGE_KEYS.mapper,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       version: 1,
       partialize: (state) => ({
         responseJson: capForStorage(state.responseJson),

@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 /**
  * SHA digests via `crypto.subtle.digest` — the browser's own implementation,
  * not a hand-rolled or third-party one. There is no reason to ship (or trust)
@@ -16,6 +17,7 @@ function toHex(buffer: ArrayBuffer): string {
 }
 
 export async function computeHash(text: string, algorithm: HashAlgorithm): Promise<string> {
+  assertInputWithinLimit(text, 'HASH', 'Hash');
   const bytes = Uint8Array.from(new TextEncoder().encode(text));
   const digest = await crypto.subtle.digest(algorithm, bytes);
   return toHex(digest);

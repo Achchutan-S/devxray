@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { InlineError, IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
 import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
@@ -40,7 +40,20 @@ export function MarkdownTab() {
     }
   }, []);
 
-  const html = useMemo(() => renderMarkdown(debouncedInput), [debouncedInput]);
+  /**
+   * Rendering is guarded, so this can fail — an over-limit document throws
+   * before `marked` ever runs. Catching it here keeps a resource ceiling an
+   * inline message rather than an error boundary: the input is still on screen
+   * and still editable, which is the whole difference between "too big" and
+   * "the tool broke".
+   */
+  const { html, renderError } = useMemo(() => {
+    try {
+      return { html: renderMarkdown(debouncedInput), renderError: null };
+    } catch (error) {
+      return { html: '', renderError: (error as Error).message };
+    }
+  }, [debouncedInput]);
 
   const handleClear = useCallback(() => setInput(''), [setInput]);
 
@@ -87,6 +100,7 @@ export function MarkdownTab() {
 
   return (
     <TabShell split>
+      <InlineError message={renderError} />
       <Pane bordered>
         <PaneHeader
           title="Markdown"

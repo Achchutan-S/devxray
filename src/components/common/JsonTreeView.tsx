@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { LIMITS } from '@/utils/constants';
 
 /** Children rendered per container before the rest are summarised. */
-const CHILD_RENDER_LIMIT = 200;
+const CHILD_RENDER_LIMIT = LIMITS.RENDER.JSON_TREE_CHILDREN;
 
 interface NodeProps {
   name: string | null;

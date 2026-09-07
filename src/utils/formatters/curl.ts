@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 export interface CurlHeader {
   readonly name: string;
   readonly value: string;
@@ -122,6 +123,7 @@ function splitHeader(raw: string): CurlHeader | null {
 }
 
 export function parseCurl(input: string): ParsedCurl {
+  assertInputWithinLimit(input, 'CURL', 'cURL');
   const trimmed = input.trim();
   if (trimmed === '') throw new CurlParseError('Paste a curl command to convert.');
 

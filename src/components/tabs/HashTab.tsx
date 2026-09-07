@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell } from '@/components/common';
+import { InlineError, IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell } from '@/components/common';
 import { useCommandPaletteCommands, useDebounce, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
@@ -22,6 +22,7 @@ function isSharedHashPayload(value: unknown): value is SharedHashPayload {
 
 export function HashTab() {
   const [input, setInput] = useState('');
+  const [hashError, setHashError] = useState<string | null>(null);
   const [hashes, setHashes] = useState<Record<HashAlgorithm, string>>({
     'SHA-256': '',
     'SHA-384': '',
@@ -54,12 +55,18 @@ export function HashTab() {
     }
 
     let cancelled = false;
-    void Promise.all(HASH_ALGORITHMS.map((algorithm) => computeHash(debouncedInput, algorithm))).then(
-      ([sha256, sha384, sha512]) => {
+    void Promise.all(HASH_ALGORITHMS.map((algorithm) => computeHash(debouncedInput, algorithm)))
+      .then(([sha256, sha384, sha512]) => {
         if (cancelled) return;
+        setHashError(null);
         setHashes({ 'SHA-256': sha256 ?? '', 'SHA-384': sha384 ?? '', 'SHA-512': sha512 ?? '' });
-      },
-    );
+      })
+      // Without this the digest promise rejects unhandled and the panel simply
+      // stops updating — the failure mode this phase exists to remove.
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setHashError((error as Error).message);
+      });
     return () => {
       cancelled = true;
     };
@@ -109,6 +116,7 @@ export function HashTab() {
 
   return (
     <TabShell>
+      <InlineError message={hashError} />
       <Pane bordered>
         <PaneHeader
           title="Input"

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from './safeStorage';
 import type { Theme } from '@/types';
 import { CONFIG, STORAGE_KEYS } from '@/utils/constants';
 import { TAB_IDS } from '@/constants/tabs';
@@ -100,7 +101,7 @@ export const usePreferenceStore = create<PreferenceState>()(
     }),
     {
       name: STORAGE_KEYS.preferences,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       version: 2,
       /**
        * v1 had no `barTabs`: the bar was the first DEFAULT_BAR_TAB_COUNT

@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 marked.setOptions({ gfm: true, breaks: false });
 
@@ -15,6 +16,7 @@ marked.setOptions({ gfm: true, breaks: false });
 const SANITIZE_CONFIG = { FORBID_ATTR: ['style'] };
 
 export function renderMarkdown(input: string): string {
+  assertInputWithinLimit(input, 'MARKDOWN', 'Markdown');
   const raw = marked.parse(input, { async: false });
   return DOMPurify.sanitize(raw, SANITIZE_CONFIG);
 }

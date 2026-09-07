@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 /**
  * URL parsing and rebuilding, built entirely on the native `URL` /
  * `URLSearchParams` APIs rather than regex — the platform already implements
@@ -85,6 +86,7 @@ export function updateQueryParam(
  * `inferredScheme` tells the caller a scheme was assumed, so the UI can say so.
  */
 export function parseURL(input: string): UrlComponents {
+  assertInputWithinLimit(input, 'URL', 'URL');
   const trimmed = input.trim();
   if (trimmed === '') throw new UrlParseError('Enter a URL to parse.');
 

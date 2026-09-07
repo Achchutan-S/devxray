@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 export interface JSONStats {
   readonly maxDepth: number;
   readonly keyCount: number;
@@ -30,6 +31,7 @@ function errorOffset(message: string): number | null {
 }
 
 export function parseJSON(text: string): unknown {
+  assertInputWithinLimit(text, 'JSON', 'JSON');
   try {
     return JSON.parse(text) as unknown;
   } catch (error) {

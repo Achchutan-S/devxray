@@ -4,11 +4,11 @@ import { toast } from 'sonner';
 import { isFileDrag, isTabDrag } from '@/constants/dragTypes';
 import { useUIStore } from '@/store';
 import { triggerFileDropForTab } from '@/hooks';
-import { CONFIG } from '@/utils/constants';
+import { CONFIG, LIMITS } from '@/utils/constants';
 import { resolveTargetTab } from '@/utils/fileRouting';
 
 /** Files larger than this are refused outright rather than freezing the tab. */
-const MAX_DROP_BYTES = 25 * 1024 * 1024;
+const MAX_DROP_BYTES = LIMITS.FILE.MAX_DROP_BYTES;
 
 async function readFileWithProgress(
   file: File,

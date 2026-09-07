@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 /**
  * Base64 and Base64URL encode/decode, built on native `btoa`/`atob`.
  *
@@ -36,6 +37,7 @@ function base64ToBytes(base64: string): Uint8Array {
 
 /** Plain text → Base64 (or Base64URL). */
 export function encodeBase64(text: string, mode: Base64Mode): string {
+  assertInputWithinLimit(text, 'BASE64', 'Base64');
   const bytes = new TextEncoder().encode(text);
   const standard = bytesToBase64(bytes);
   if (mode === 'base64') return standard;

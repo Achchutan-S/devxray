@@ -7,6 +7,7 @@ import {
   sqlite,
   transactsql,
 } from 'sql-formatter';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 /**
  * Dialects are imported individually and dispatched through `formatDialect`
@@ -59,6 +60,7 @@ export class SqlFormatError extends Error {
 }
 
 export function formatSQL(sql: string, options: SqlOptions = DEFAULT_SQL_OPTIONS): string {
+  assertInputWithinLimit(sql, 'SQL', 'SQL');
   if (sql.trim() === '') return '';
 
   try {

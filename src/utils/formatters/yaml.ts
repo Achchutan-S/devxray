@@ -1,4 +1,5 @@
 import { parseAllDocuments, stringify as stringifyYaml } from 'yaml';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 export type ConversionDirection = 'yaml-to-json' | 'json-to-yaml';
 
@@ -66,6 +67,7 @@ export interface YamlToJsonResult {
  * first — dropping data quietly is worse than changing the shape visibly.
  */
 export function yamlToJson(text: string, indent = 2): YamlToJsonResult {
+  assertInputWithinLimit(text, 'YAML', 'YAML');
   if (text.trim() === '') return { output: '', documentCount: 0 };
 
   const documents = parseAllDocuments(text, PARSE_OPTIONS);

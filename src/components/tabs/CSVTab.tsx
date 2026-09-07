@@ -20,6 +20,7 @@ import {
 } from '@/utils/formatters/csv';
 
 import { consumeSharedState } from '@/utils/shareState';
+import { LIMITS } from '@/utils/constants';
 
 const TAB_ID = 'csv';
 
@@ -116,6 +117,20 @@ export function CSVTab() {
     if (sort === null) return table.rows;
     return sortRows(table.rows, sort.column, sort.direction);
   }, [table, sort]);
+
+  /**
+   * The table renders a window, not the whole document.
+   *
+   * A 12 MB CSV parses in about 170 ms and yields 400,000 rows; turning those
+   * into table rows is what actually kills the tab, not the parsing. Copy and
+   * export still operate on every parsed row — only the DOM is bounded, and the
+   * footer says so rather than leaving a silent truncation.
+   */
+  const renderedRows = useMemo(
+    () => displayRows.slice(0, LIMITS.RENDER.CSV_ROWS),
+    [displayRows],
+  );
+  const hiddenRowCount = displayRows.length - renderedRows.length;
 
   const handleSortColumn = useCallback((column: number) => {
     setSort((current) => {
@@ -266,7 +281,7 @@ export function CSVTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map((row, rowIndex) => (
+                  {renderedRows.map((row, rowIndex) => (
                     <tr key={rowIndex} className="odd:bg-surface-sunken/40 hover:bg-surface-raised">
                       {row.map((cell, cellIndex) => (
                         <td key={cellIndex} className="max-w-[20rem] truncate border-b border-line px-2 py-1 text-fg">
@@ -282,6 +297,13 @@ export function CSVTab() {
         </PaneBody>
         <PaneBar>
           <span>{table ? `${table.headers.length} columns` : '—'}</span>
+          {hiddenRowCount > 0 && (
+            <span className="text-warning">
+              Showing the first {renderedRows.length.toLocaleString()} rows.{' '}
+              {hiddenRowCount.toLocaleString()} more are parsed and included in
+              Copy JSON and Copy TSV.
+            </span>
+          )}
           {sort && <span className="text-accent">Sorted by column {sort.column + 1} ({sort.direction})</span>}
         </PaneBar>
       </Pane>

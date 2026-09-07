@@ -1,4 +1,5 @@
 import { stringifyCsvTable } from '@/utils/csvEscape';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 export type Delimiter = ',' | ';' | '\t' | '|' | ':';
 
@@ -129,12 +130,19 @@ export function detectDelimiter(input: string): Delimiter {
 }
 
 export function parseCSV(input: string, delimiter: Delimiter, hasHeader: boolean): ParsedTable {
+  assertInputWithinLimit(input, 'CSV', 'CSV');
   if (input.trim() === '') throw new CsvParseError('Nothing to parse.');
 
   const rows = tokenize(input, delimiter);
   if (rows.length === 0) throw new CsvParseError('Nothing to parse.');
 
-  const width = Math.max(...rows.map((r) => r.length));
+  // Not `Math.max(...rows.map(...))`: spreading one argument per row overflows
+  // the call stack somewhere north of 100k rows, and a 6 MB CSV is an ordinary
+  // export. A fold has no argument-count ceiling.
+  let width = 0;
+  for (const row of rows) {
+    if (row.length > width) width = row.length;
+  }
   const padded = rows.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ''));
 
   if (hasHeader) {

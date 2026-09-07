@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, IconButton, ToolButton } from '@/components/common';
+import { InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, IconButton, ToolButton } from '@/components/common';
 import { useCommandPaletteCommands, useShareAction, useTabHotkeys } from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
@@ -44,7 +44,15 @@ export function TextCaseTab() {
     }
   }, []);
 
-  const output = useMemo(() => convertCase(input, targetCase, lineByLine), [input, targetCase, lineByLine]);
+  // Guarded, so an over-limit document throws rather than producing a second
+  // copy of a very large string. Surfaced inline, not through the boundary.
+  const { output, convertError } = useMemo(() => {
+    try {
+      return { output: convertCase(input, targetCase, lineByLine), convertError: null };
+    } catch (error) {
+      return { output: '', convertError: (error as Error).message };
+    }
+  }, [input, targetCase, lineByLine]);
 
   const handleClear = useCallback(() => setInput(''), []);
 
@@ -90,6 +98,7 @@ export function TextCaseTab() {
 
   return (
     <TabShell split>
+      <InlineError message={convertError} />
       <Pane bordered>
         <PaneHeader
           title="Input"

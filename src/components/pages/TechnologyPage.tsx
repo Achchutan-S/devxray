@@ -174,6 +174,58 @@ export function TechnologyPage({ onNavigate, onBack }: Props) {
       </Section>
 
       <Section
+        title="Limits &amp; safety"
+        lead="Why some operations stop rather than grinding, and roughly where the ceilings sit."
+      >
+        <div className="space-y-3 text-sm leading-relaxed text-fg-muted">
+          <p>
+            Dev X-Ray does all its work on the main thread of the tab you have
+            open. There is no server to absorb an unreasonable workload, so an
+            unbounded operation does not fail somewhere else &mdash; it freezes
+            the window you are working in. Resource-heavy operations are
+            therefore deliberately bounded to keep the UI responsive.
+          </p>
+          <p>
+            The ceilings are set from measured cost, not picked to look tidy, and
+            they are generous: ordinary developer payloads should never meet one.
+            When an input does exceed a limit the tool refuses it and says so.
+            Nothing is silently truncated and presented as a complete result.
+          </p>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded border border-line">
+          {[
+            ['Input size', 'Each format has its own ceiling, measured in UTF-8 bytes. JSON, CSV and Hash sit at the top; YAML is lower because its parser gets slower with structural complexity rather than raw size, and Markdown is lower still because its cost is the DOM it produces.'],
+            ['Rendering', 'A safe parser is not enough if the result is half a million table rows. Large CSVs render a window of rows while copy and export keep every parsed row. The JSON tree summarises very wide containers instead of expanding them.'],
+            ['Regular expressions', 'Pattern syntax is checked on the main thread, where compiling can never hang. Execution runs in a Web Worker that is terminated after 2.5 seconds \u2014 the only way to actually stop a catastrophic pattern, since JavaScript cannot interrupt itself mid-match.'],
+            ['History', 'Capped at 100 entries, 2,000 characters per field and 8,000 characters in total, so it cannot grow without bound. JWT is excluded entirely.'],
+            ['Share links', 'State above 500,000 characters is not shareable; the button says so rather than producing a link that will not open.'],
+            ['Dropped files', 'Checked against the file size before a byte is read, so an oversized file is refused without being loaded into memory first.'],
+            ['Browser storage', 'If the origin runs out of quota the session simply stops being saved. It is reported once and the tools keep working in memory.'],
+          ].map(([title, body], i) => (
+            <div
+              key={title}
+              className={`flex flex-col gap-1 bg-surface px-3 py-2.5 sm:flex-row sm:gap-4 ${
+                i > 0 ? 'border-t border-line' : ''
+              }`}
+            >
+              <span className="w-full shrink-0 text-xs font-semibold uppercase tracking-[0.09em] text-fg-subtle sm:w-40">
+                {title}
+              </span>
+              <span className="text-sm text-fg-muted">{body}</span>
+            </div>
+          ))}
+        </div>
+
+        <Callout tone="warning" title="What this is not">
+          These are resource budgets, not a security boundary, and they are not a
+          guarantee. They bound the workloads that were measured; a deliberately
+          pathological input under a ceiling can still be slow. The claim is
+          predictable failure with an explanation, not immunity.
+        </Callout>
+      </Section>
+
+      <Section
         title="Licensing"
         lead="What you are allowed to do with this code, and what the dependencies bring with them."
       >

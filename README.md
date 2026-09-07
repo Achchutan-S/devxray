@@ -69,6 +69,33 @@ than pretending to restore something it can't.
   to run a Web Crypto HMAC check, and are never part of a share link, a log, or any
   stored state.
 
+## Resource limits
+
+Everything runs on the main thread of the tab, so there is no server to absorb an
+unreasonable workload — an unbounded operation freezes the window you are working
+in. Resource-heavy operations are therefore bounded, with ceilings set from
+measured cost and collected in `LIMITS` in [src/utils/constants.ts](src/utils/constants.ts).
+
+| Area | Bound |
+|---|---|
+| Input size | Per-format, in UTF-8 bytes. JSON/CSV/Hash 10 MB; XML/SQL/GraphQL/Case 2 MB; YAML 1 MB; Markdown 512 KB; cURL 256 KB; URL/JWT 64 KB |
+| Rendering | CSV renders 1,000 rows (copy/export keep all); the JSON tree summarises above 200 children per container |
+| Regex | Syntax validated on the main thread; execution in a worker terminated after 2.5 s |
+| History | 100 entries, 2,000 chars per field, 8,000 chars total. JWT excluded |
+| Share links | State above 500,000 characters is not shareable |
+| Dropped files | 25 MB, checked against the file size before any read |
+| Browser storage | Quota failures degrade to in-memory for the session, reported once |
+
+YAML is bounded lower than its neighbours on purpose: the parser's cost tracks
+structural complexity rather than byte count. Realistic nested YAML runs ~280 ms
+at 790 kB, but a single flat mapping of tens of thousands of keys goes quadratic
+and reached ~22 s at the same size. A byte ceiling cannot fully bound that, so
+this one is deliberately conservative.
+
+These are resource budgets, not a security boundary, and not a guarantee. They
+bound the workloads that were measured; a deliberately pathological input under a
+ceiling can still be slow.
+
 ## Requirements
 
 | | |

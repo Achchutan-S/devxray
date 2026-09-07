@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { safeLocalStorage } from './safeStorage';
 import type { HistoryEntry } from '@/types';
 import { CONFIG, STORAGE_KEYS } from '@/utils/constants';
 
@@ -71,7 +72,7 @@ export const useHistoryStore = create<HistoryState>()(
     }),
     {
       name: STORAGE_KEYS.history,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       version: 1,
     },
   ),

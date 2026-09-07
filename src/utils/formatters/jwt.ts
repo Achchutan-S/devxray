@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 /**
  * JWT decoding and HMAC signature verification.
  *
@@ -70,6 +71,7 @@ function base64UrlToJson(segment: string, part: 'header' | 'payload'): Record<st
  * that are never legitimately part of one.
  */
 export function decodeJwt(token: string): DecodedJwt {
+  assertInputWithinLimit(token, 'JWT', 'JWT');
   const cleaned = token.replace(/\s+/g, '');
   if (cleaned === '') throw new JwtDecodeError('Paste a JWT to decode it.');
 

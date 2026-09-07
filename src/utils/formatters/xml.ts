@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 /**
  * XML support.
  *
@@ -103,6 +104,7 @@ function toNode(node: Node): XmlNode | null {
 
 /** Text → plain tree. The only function here that needs a DOM. */
 export function parseXML(text: string): XmlNode[] {
+  assertInputWithinLimit(text, 'XML', 'XML');
   if (text.trim() === '') return [];
 
   const parser = new DOMParser();

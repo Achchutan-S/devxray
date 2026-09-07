@@ -1,3 +1,4 @@
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 export type TargetCase =
   | 'camelCase'
   | 'PascalCase'
@@ -84,6 +85,7 @@ export function applyCase(tokens: readonly string[], targetCase: TargetCase): st
  * separator) is treated as a single value.
  */
 export function convertCase(input: string, targetCase: TargetCase, lineByLine: boolean): string {
+  assertInputWithinLimit(input, 'TEXT_CASE', 'Case');
   if (input === '') return '';
 
   if (!lineByLine) {

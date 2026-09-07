@@ -20,6 +20,7 @@ import {
   type FieldNode,
   type ValueNode,
 } from 'graphql';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 export interface GQLStats {
   readonly maxDepth: number;
@@ -72,6 +73,7 @@ export class GraphQLParseError extends Error {
 
 /** Parses, normalising `GraphQLError` into something with a usable offset. */
 export function parseGraphQL(source: string): DocumentNode {
+  assertInputWithinLimit(source, 'GRAPHQL', 'GraphQL');
   try {
     return parse(source, { noLocation: false });
   } catch (error) {
