@@ -3,6 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Achchutan-S/devxray.git"
+  },
+  "homepage": "https://github.com/Achchutan-S/devxray#readme",
+  "bugs": {
+    "url": "https://github.com/Achchutan-S/devxray/issues"
+  },
   "description": "Dev X-Ray \u2014 a browser-first developer productivity toolkit. Everything runs locally.",
   "type": "module",
   "engines": {

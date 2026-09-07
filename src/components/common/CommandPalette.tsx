@@ -1,30 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Sun, Moon, CornerDownLeft } from 'lucide-react';
-import { TABS } from '@/constants/tabs';
+import { Search, CornerDownLeft } from 'lucide-react';
+import { CATEGORY_LABEL, buildStaticCommands, rankCommands } from '@/constants/commands';
+import type { ContentPageId } from '@/constants/routes';
 import { getContextCommands, useFocusTrap } from '@/hooks';
 import { usePreferenceStore, useUIStore } from '@/store';
 import type { Command } from '@/types';
-import { fuzzyMatch } from '@/utils/fuzzy';
 import { cn } from '@/utils/cn';
-
-const CATEGORY_ORDER: Record<Command['category'], number> = {
-  context: 0,
-  tab: 1,
-  action: 2,
-};
-
-const CATEGORY_LABEL: Record<Command['category'], string> = {
-  context: 'This tool',
-  tab: 'Go to',
-  action: 'Actions',
-};
 
 interface CommandPaletteProps {
   isOpen: boolean;
   onClose: () => void;
+  /** The app's existing router. The palette navigates through it rather than
+      touching history itself, so there is still exactly one router. */
+  onNavigateToPage: (pageId: ContentPageId) => void;
 }
 
-export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+export function CommandPalette({ isOpen, onClose, onNavigateToPage }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -47,43 +38,18 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const commands = useMemo<Command[]>(() => {
     if (!isOpen) return [];
 
-    const tabCommands: Command[] = TABS.map((tab) => ({
-      id: `tab:${tab.id}`,
-      label: `Go to ${tab.label}`,
-      category: 'tab',
-      hint: tab.description,
-      icon: tab.icon,
-      run: () => setActiveTab(tab.id),
-    }));
+    const staticCommands = buildStaticCommands({
+      theme,
+      setActiveTab,
+      navigateToPage: onNavigateToPage,
+      toggleTheme,
+      openExternal: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
+    });
 
-    const actions: Command[] = [
-      {
-        id: 'action:theme',
-        label: theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-        category: 'action',
-        icon: theme === 'dark' ? Sun : Moon,
-        run: toggleTheme,
-      },
-    ];
+    return [...getContextCommands(activeTab), ...staticCommands];
+  }, [isOpen, activeTab, theme, setActiveTab, toggleTheme, onNavigateToPage]);
 
-    return [...getContextCommands(activeTab), ...tabCommands, ...actions];
-  }, [isOpen, activeTab, theme, setActiveTab, toggleTheme]);
-
-  const results = useMemo(() => {
-    return commands
-      .map((command) => {
-        const label = fuzzyMatch(query, command.label);
-        const hint = command.hint ? fuzzyMatch(query, command.hint) : null;
-        const score = Math.max(label.score, hint?.matches === true ? hint.score / 2 : 0);
-        return { command, matches: label.matches || (hint?.matches ?? false), score };
-      })
-      .filter((entry) => entry.matches)
-      .sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return CATEGORY_ORDER[a.command.category] - CATEGORY_ORDER[b.command.category];
-      })
-      .slice(0, 50);
-  }, [commands, query]);
+  const results = useMemo(() => rankCommands(query, commands), [commands, query]);
 
   useEffect(() => setSelected(0), [query]);
 
@@ -109,7 +75,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       setSelected((i) => (results.length === 0 ? 0 : (i - 1 + results.length) % results.length));
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      run(results[selected]?.command);
+      run(results[selected]);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       onClose();
@@ -141,12 +107,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tools and actions…"
+            placeholder="Search tools, pages and actions…"
             aria-label="Search commands"
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-list"
-            aria-activedescendant={results[selected] ? `command-${results[selected].command.id}` : undefined}
+            aria-activedescendant={results[selected] ? `command-${results[selected].id}` : undefined}
             className="w-full bg-transparent py-3 text-sm text-fg outline-none placeholder:text-fg-subtle"
           />
         </div>
@@ -162,8 +128,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             <li className="px-4 py-6 text-center text-sm text-fg-muted">No matching commands</li>
           )}
 
-          {results.map((entry, index) => {
-            const { command } = entry;
+          {results.map((command, index) => {
             const showHeading = command.category !== lastCategory;
             lastCategory = command.category;
             const Icon = command.icon;

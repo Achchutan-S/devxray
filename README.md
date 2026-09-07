@@ -6,6 +6,8 @@ tags: []
 
 # Dev X-Ray
 
+**Source:** <https://github.com/Achchutan-S/devxray> · **Licence:** [MIT](./LICENSE)
+
 A browser-first developer toolkit. Format, decode, convert and inspect the things
 you deal with every day — GraphQL, JSON, YAML, SQL, JWTs, cron expressions — without
 any of it leaving your machine.
@@ -30,10 +32,9 @@ Installed as a PWA, it works with the network off.
 
 A tool's "Share" button copies a link with its state compressed into the URL hash
 (`#/{tool}/{compressed}`) — nothing is uploaded, and the link only works because the
-receiving browser decodes the hash itself. Wired into URL, JWT, Base64, UUID, Mock,
-Regex, Case, Color and Cron; other tools can be connected to the same `shareState`
-utility as they come up. (Timestamp has no Share button by design — a shared
-"point in time" is already fully expressed by pasting the value itself.) A hash
+receiving browser decodes the hash itself. Every tool carries one except **History**
+and **Mapper**: History is a log of past operations rather than a state worth sending
+to someone, and Mapper's state is larger than a URL should carry. A hash
 that fails to decode, or names a tool id that no longer exists, is rejected
 safely with a `toast.error` rather than failing silently or loading a broken
 state.
@@ -104,7 +105,7 @@ rather than a subpath unless you adjust both.
 ## PWA behaviour
 
 - **Installable** via the browser's native install affordance.
-- **Offline capable.** All 66 unique build assets are precached (≈5.3 MB, 88% of the
+- **Offline capable.** All 75 unique build assets are precached (≈5.4 MB, 90% of the
   6 MB ceiling), including the Monaco chunk, both editor workers (plus the Regex
   tool's own Web Worker), and Monaco's icon font. The editor works with the network
   off.

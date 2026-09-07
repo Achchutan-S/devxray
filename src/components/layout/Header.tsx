@@ -1,9 +1,9 @@
 import { Keyboard, Maximize2, Menu, Moon, Search, ShieldCheck, Sun } from 'lucide-react';
 import { CATEGORY_LABELS, getTab } from '@/constants/tabs';
-import type { ContentPageId } from '@/constants/routes';
+import { REPO_URL, type ContentPageId } from '@/constants/routes';
 import { renderShortcut } from '@/constants/shortcuts';
 import { usePreferenceStore, useUIStore } from '@/store';
-import { IconButton } from '@/components/common';
+import { GitHubMark, IconButton, IconLink } from '@/components/common';
 
 interface HeaderProps {
   onOpenPalette: () => void;
@@ -103,6 +103,10 @@ export function Header({ onOpenPalette, onOpenShortcuts, onOpenNav, onOpenPage }
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           <span className="hidden lg:inline">Privacy</span>
         </button>
+
+        <IconLink href={REPO_URL} label="View source on GitHub">
+          <GitHubMark className="h-4 w-4" />
+        </IconLink>
 
         <IconButton
           icon={Keyboard}

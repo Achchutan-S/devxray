@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { CATEGORIES, categoryOf, tabsInCategory } from '@/constants/tabs';
+import {
+  CONTENT_PAGE_GROUP_LABELS,
+  CONTENT_PAGE_NAV,
+  REPO_URL,
+  contentPagesInGroup,
+  type ContentPageGroup,
+  type ContentPageId,
+} from '@/constants/routes';
+import { GitHubMark } from '@/components/common';
 import { useFocusTrap } from '@/hooks';
 import { usePreferenceStore, useUIStore } from '@/store';
 import type { TabCategory } from '@/types';
@@ -12,6 +21,11 @@ import { cn } from '@/utils/cn';
  *   rail   — "what kind of tool am I looking for?" (5 categories)
  *   panel  — "which tool?" (the selected category's tools)
  *   tabbar — "what am I working on?" (unchanged, see TabBar)
+ *
+ * The panel ends with the documentation and trust pages plus the source link.
+ * They live inside the panel's existing scroll container rather than in new
+ * chrome, so they cost no fixed space and reach the mobile drawer for free —
+ * the drawer renders this same panel.
  *
  * Selecting a tool here is exactly the same action the tab bar performs, so the
  * open-tabs model — pinning, reordering, overflow — is untouched by this layer.
@@ -80,13 +94,61 @@ function CategoryRail({ selected, onSelect }: RailProps) {
   );
 }
 
+const PAGE_GROUPS: readonly ContentPageGroup[] = ['learn', 'trust'];
+
+interface PageLinksProps {
+  onNavigate: (pageId: ContentPageId) => void;
+}
+
+/**
+ * Documentation, trust pages and the repository, closing out the tool panel.
+ *
+ * Deliberately quieter than the tool rows above — smaller text, subtler colour
+ * — because the tools are what someone came for. This is the answer to "where
+ * is everything else?", not a competing menu.
+ */
+function PageLinks({ onNavigate }: PageLinksProps) {
+  const row =
+    'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs text-fg-subtle hover:bg-surface-raised hover:text-fg';
+
+  return (
+    <div className="mt-1 border-t border-line px-1.5 pb-2 pt-2">
+      {PAGE_GROUPS.map((group) => (
+        <div key={group} className="mb-1.5 last:mb-0">
+          <h3 className="px-2 pb-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle">
+            {CONTENT_PAGE_GROUP_LABELS[group]}
+          </h3>
+          <ul>
+            {contentPagesInGroup(group).map((id) => (
+              <li key={id}>
+                <button type="button" onClick={() => onNavigate(id)} className={row}>
+                  <span className="truncate">{CONTENT_PAGE_NAV[id].label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+
+      <h3 className="px-2 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-subtle">
+        Source
+      </h3>
+      <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={row}>
+        <GitHubMark className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">GitHub</span>
+      </a>
+    </div>
+  );
+}
+
 interface PanelProps {
   selected: TabCategory;
   onPick: (tabId: string) => void;
+  onNavigateToPage: (pageId: ContentPageId) => void;
   onCollapse?: () => void;
 }
 
-function ToolPanel({ selected, onPick, onCollapse }: PanelProps) {
+function ToolPanel({ selected, onPick, onNavigateToPage, onCollapse }: PanelProps) {
   const activeTab = useUIStore((state) => state.activeTab);
   const category = CATEGORIES.find((c) => c.id === selected);
   const tools = tabsInCategory(selected);
@@ -110,7 +172,8 @@ function ToolPanel({ selected, onPick, onCollapse }: PanelProps) {
         ) : null}
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2 dx-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto dx-scrollbar">
+      <ul className="px-1.5">
         {tools.map((tool) => {
           const Icon = tool.icon;
           const isActive = tool.id === activeTab;
@@ -135,12 +198,19 @@ function ToolPanel({ selected, onPick, onCollapse }: PanelProps) {
           );
         })}
       </ul>
+
+      <PageLinks onNavigate={onNavigateToPage} />
+      </div>
     </div>
   );
 }
 
+interface NavProps {
+  onNavigateToPage: (pageId: ContentPageId) => void;
+}
+
 /** Rail + panel, for viewports wide enough to show them beside the workspace. */
-export function ToolNav() {
+export function ToolNav({ onNavigateToPage }: NavProps) {
   const [selected, setSelected] = useSelectedCategory();
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const collapsed = usePreferenceStore((state) => state.navPanelCollapsed);
@@ -174,6 +244,7 @@ export function ToolNav() {
         <ToolPanel
           selected={selected}
           onPick={setActiveTab}
+          onNavigateToPage={onNavigateToPage}
           onCollapse={() => setCollapsed(true)}
         />
       )}
@@ -181,13 +252,13 @@ export function ToolNav() {
   );
 }
 
-interface DrawerProps {
+interface DrawerProps extends NavProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 /** The same two levels as an overlay, for viewports too narrow to seat them. */
-export function ToolNavDrawer({ isOpen, onClose }: DrawerProps) {
+export function ToolNavDrawer({ isOpen, onClose, onNavigateToPage }: DrawerProps) {
   const [selected, setSelected] = useSelectedCategory();
   const setActiveTab = useUIStore((state) => state.setActiveTab);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -199,6 +270,15 @@ export function ToolNavDrawer({ isOpen, onClose }: DrawerProps) {
       onClose();
     },
     [setActiveTab, onClose],
+  );
+
+  // Leaving for a page has to close the drawer too, or it stays open over it.
+  const handleNavigate = useCallback(
+    (pageId: ContentPageId) => {
+      onNavigateToPage(pageId);
+      onClose();
+    },
+    [onNavigateToPage, onClose],
   );
 
   if (!isOpen) return null;
@@ -217,7 +297,11 @@ export function ToolNavDrawer({ isOpen, onClose }: DrawerProps) {
         className="absolute inset-y-0 left-0 flex shadow-2xl"
       >
         <CategoryRail selected={selected} onSelect={setSelected} />
-        <ToolPanel selected={selected} onPick={handlePick} />
+        <ToolPanel
+          selected={selected}
+          onPick={handlePick}
+          onNavigateToPage={handleNavigate}
+        />
         <button
           type="button"
           onClick={onClose}

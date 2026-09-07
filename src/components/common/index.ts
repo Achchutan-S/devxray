@@ -11,5 +11,6 @@ export { PwaUpdater } from './PwaUpdater';
 export { ShortcutsModal } from './ShortcutsModal';
 export { TabErrorBoundary } from './TabErrorBoundary';
 export { TabSkeleton } from './TabSkeleton';
-export { IconButton, ToolButton } from './Buttons';
+export { IconButton, IconLink, ToolButton } from './Buttons';
+export { GitHubMark } from './GitHubMark';
 export { Pane, PaneBar, PaneBody, PaneHeader, TabShell } from './TabLayout';

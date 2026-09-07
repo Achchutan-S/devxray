@@ -63,7 +63,7 @@ Additional browser-managed storage that is **not** written by application code
 but must still be disclosed publicly:
 
 - **Cache Storage** — the service worker precaches the application's own files
-  (66 entries, ~5.3 MB). It caches the app, never user input.
+  (75 entries, ~5.4 MB). It caches the app, never user input.
 - **Browser address-bar history** — receives the tool route (`/jwt`), and would
   receive a share fragment if a user navigates to one.
 - **Clipboard** — receives content only on an explicit copy/share action.
@@ -173,8 +173,8 @@ excluded. Restore repopulates input for `json`, `hash`, `base64`, `csv`,
 
 ## 11. PWA
 
-`registerType: 'prompt'` — a new version never activates mid-edit. Precaches 66
-files (~5.3 MB), including Monaco and its workers, which is what makes full
+`registerType: 'prompt'` — a new version never activates mid-edit. Precaches 75
+files (~5.4 MB), including Monaco and its workers, which is what makes full
 offline operation possible.
 
 **Verified offline:** with the network disabled, the app boots from cache, the

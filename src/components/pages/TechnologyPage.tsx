@@ -1,6 +1,6 @@
 import { PageShell } from './PageShell';
 import { Callout, Section } from './TrustPrimitives';
-import type { ContentPageId } from '@/constants/routes';
+import { REPO_URL, type ContentPageId } from '@/constants/routes';
 
 interface Props {
   onNavigate: (pageId: ContentPageId) => void;
@@ -38,7 +38,7 @@ const GROUPS: readonly { title: string; note?: string; deps: readonly Dep[] }[] 
   {
     title: 'State',
     deps: [
-      { name: 'zustand', role: 'Application state. Three stores; two of them persist to localStorage.' },
+      { name: 'zustand', role: 'Application state. Four stores; three of them persist to localStorage.' },
     ],
   },
   {
@@ -187,7 +187,16 @@ export function TechnologyPage({ onNavigate, onBack }: Props) {
           <p>
             The repository is public, so the implementation is inspectable: every claim
             on the Privacy and Security pages can be checked against the code that makes
-            it, rather than taken on trust.
+            it, rather than taken on trust — read it at{' '}
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent underline underline-offset-2 hover:text-accent-hover"
+            >
+              github.com/Achchutan-S/devxray
+            </a>
+            .
           </p>
           <p>
             Under the MIT License you may use, modify, distribute and self-host Dev X-Ray,
@@ -244,9 +253,9 @@ export function TechnologyPage({ onNavigate, onBack }: Props) {
 
       <Section title="Bundle and offline footprint">
         <ul className="space-y-1.5 text-sm text-fg-muted">
-          <li>Initial JavaScript is around 116 kB raw (roughly 34 kB gzipped); everything else loads on demand.</li>
+          <li>The application’s own entry chunk is around 133 kB raw (roughly 40 kB gzipped); every tool loads on demand.</li>
           <li>The editor is by far the largest asset at roughly 3.3 MB raw (about 860 kB gzipped) and is precached so it works offline.</li>
-          <li>The service worker precaches 66 files, about 5.3 MB in total, which is what allows every tool to run with the network off.</li>
+          <li>The service worker precaches 75 files, about 5.4 MB in total, which is what allows every tool to run with the network off.</li>
         </ul>
       </Section>
     </PageShell>

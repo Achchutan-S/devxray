@@ -83,6 +83,89 @@ export function isContentPageId(value: string): value is ContentPageId {
   return (CONTENT_PAGE_IDS as readonly string[]).includes(value);
 }
 
+// --- Navigation metadata -----------------------------------------------------
+
+/**
+ * The project's public repository.
+ *
+ * Six pages referred to "the public repository" in prose while nothing in the
+ * app linked to it. This constant is that link, and every surface that offers
+ * the source reads it from here rather than hard-coding a URL of its own.
+ */
+export const REPO_URL = 'https://github.com/Achchutan-S/devxray';
+
+/**
+ * Content pages split into the two questions they actually answer: "what is
+ * this and how does it work?" and "what does it do with my data?". The split
+ * is navigation-only — routing, SEO and the pages themselves are unchanged.
+ */
+export type ContentPageGroup = 'learn' | 'trust';
+
+export const CONTENT_PAGE_GROUP_LABELS: Readonly<Record<ContentPageGroup, string>> = {
+  learn: 'Learn',
+  trust: 'Trust',
+};
+
+export interface ContentPageNav {
+  readonly label: string;
+  readonly group: ContentPageGroup;
+  /**
+   * Extra search terms for the command palette. These are matched but never
+   * rendered, so a page can be findable by a word that would read badly as a
+   * label — "docs", "licence", "self-host".
+   */
+  readonly keywords: string;
+}
+
+/**
+ * One nav record per content page. This is the single source of truth for how
+ * a page is labelled and searched: PageShell's cross-links and the command
+ * palette both read it, so a page can never be listed in one and missing from
+ * the other.
+ */
+export const CONTENT_PAGE_NAV: Readonly<Record<ContentPageId, ContentPageNav>> = {
+  why: {
+    label: 'Why Dev X-Ray',
+    group: 'learn',
+    keywords: 'why purpose rationale philosophy docs about',
+  },
+  technology: {
+    label: 'Technology',
+    group: 'learn',
+    keywords: 'technology stack dependencies libraries licence license docs built with',
+  },
+  faq: {
+    label: 'FAQ',
+    group: 'learn',
+    keywords: 'faq questions answers help docs',
+  },
+  compare: {
+    label: 'Compare',
+    group: 'learn',
+    keywords: 'compare comparison alternatives versus other tools docs',
+  },
+  privacy: {
+    label: 'Privacy',
+    group: 'trust',
+    keywords: 'privacy data storage tracking telemetry network local',
+  },
+  security: {
+    label: 'Security',
+    group: 'trust',
+    keywords: 'security threat model jwt sanitisation sanitization hardening',
+  },
+  enterprise: {
+    label: 'Self-hosting',
+    group: 'trust',
+    keywords: 'enterprise self-host self hosting internal deployment organisation organization',
+  },
+};
+
+/** Content pages in a group, in the order they should be listed. */
+export function contentPagesInGroup(group: ContentPageGroup): readonly ContentPageId[] {
+  return CONTENT_PAGE_IDS.filter((id) => CONTENT_PAGE_NAV[id].group === group);
+}
+
 // --- Route resolution --------------------------------------------------------
 
 export type Route =

@@ -102,7 +102,7 @@ export function App() {
         /* Navigation sits beside the workspace, so the tab bar stays with the
            thing it describes: what is currently open. */
         <div className="flex min-h-0 min-w-0 flex-1">
-          {!focusMode && <ToolNav />}
+          {!focusMode && <ToolNav onNavigateToPage={navigateToPage} />}
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-canvas">
             {!focusMode && <TabBar />}
@@ -129,9 +129,17 @@ export function App() {
         )}
       </div>
 
-      <ToolNavDrawer isOpen={navOpen} onClose={handleCloseNav} />
+      <ToolNavDrawer
+        isOpen={navOpen}
+        onClose={handleCloseNav}
+        onNavigateToPage={navigateToPage}
+      />
 
-      <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigateToPage={navigateToPage}
+      />
       <ShortcutsModal isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
       <Toaster

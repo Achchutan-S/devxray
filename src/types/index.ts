@@ -28,7 +28,7 @@ export interface HistoryEntry {
   readonly truncated: boolean;
 }
 
-export type CommandCategory = 'context' | 'tab' | 'action';
+export type CommandCategory = 'context' | 'tab' | 'page' | 'action';
 
 export interface Command {
   readonly id: string;

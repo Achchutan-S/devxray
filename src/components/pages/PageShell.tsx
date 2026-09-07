@@ -1,16 +1,10 @@
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { CONTENT_PAGE_IDS, type ContentPageId } from '@/constants/routes';
-
-const PAGE_LABELS: Record<ContentPageId, string> = {
-  why: 'Why',
-  privacy: 'Privacy',
-  security: 'Security',
-  technology: 'Technology',
-  compare: 'Compare',
-  enterprise: 'Self-hosting',
-  faq: 'FAQ',
-};
+import {
+  CONTENT_PAGE_IDS,
+  CONTENT_PAGE_NAV,
+  type ContentPageId,
+} from '@/constants/routes';
 
 interface PageShellProps {
   readonly current: ContentPageId;
@@ -62,7 +56,7 @@ export function PageShell({
                   : 'rounded border border-line px-2.5 py-1 text-xs text-fg-muted hover:bg-surface hover:text-fg'
               }
             >
-              {PAGE_LABELS[id]}
+              {CONTENT_PAGE_NAV[id].label}
             </button>
           ))}
         </nav>

@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -70,5 +70,46 @@ export function IconButton({
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
     </button>
+  );
+}
+
+interface IconLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  /** Rendered as the icon. Inline SVG rather than a LucideIcon is allowed here:
+      lucide dropped its brand marks in v1, so a GitHub affordance has to be
+      drawn locally the way the header's own scan mark already is. */
+  children: ReactNode;
+  /** Required: these links have no visible text. */
+  label: string;
+  variant?: Variant;
+}
+
+/**
+ * An external link wearing IconButton's clothes. Same box, same variants, so a
+ * link sitting in a row of icon buttons is indistinguishable from them — but it
+ * is a real anchor, so it keeps middle-click, "open in new tab" and the status
+ * bar preview that a button-with-onClick throws away.
+ */
+export function IconLink({
+  children,
+  label,
+  variant = 'ghost',
+  className,
+  ...rest
+}: IconLinkProps) {
+  return (
+    <a
+      aria-label={label}
+      title={label}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        'inline-flex h-8 w-8 items-center justify-center rounded border',
+        VARIANTS[variant],
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </a>
   );
 }
