@@ -101,6 +101,19 @@ export function useRouter(): RouterState {
         window.history.replaceState(null, '', path + window.location.search);
         applyDocumentMeta(resolveRoute(path));
       }
+    } else if (route.kind === 'tool' && window.location.pathname !== pathForTab(route.tabId)) {
+      // A retired slug (`/graphql`) resolves to its tool but is not that tool's
+      // canonical path. Normalising it here — with replaceState, before the
+      // pushState effect below can run — keeps the address bar honest without
+      // leaving the old URL in history, where Back would land on it and be
+      // pushed straight forward again.
+      const path = pathForTab(route.tabId);
+      window.history.replaceState(
+        null,
+        '',
+        path + window.location.search + window.location.hash,
+      );
+      applyDocumentMeta(route);
     } else {
       applyDocumentMeta(route);
     }

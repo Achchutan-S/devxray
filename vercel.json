@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/graphql",
+      "destination": "/graphql-formatter",
+      "permanent": true
+    }
+  ]
+}

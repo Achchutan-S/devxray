@@ -4,6 +4,7 @@ import {
   allRouteMeta,
   assertRouteCoverage,
   isContentPageId,
+  isSlugAlias,
   metaForRoute,
   pathForPage,
   pathForTab,
@@ -42,6 +43,19 @@ describe('resolveRoute', () => {
   it('resolves a tool path to its tool', () => {
     expect(resolveRoute('/jwt')).toEqual({ kind: 'tool', tabId: 'jwt' });
     expect(resolveRoute('/graphql')).toEqual({ kind: 'tool', tabId: 'graphql' });
+  });
+
+  it('serves the GraphQL formatter from its own crawlable slug', () => {
+    expect(resolveRoute('/graphql-formatter')).toEqual({ kind: 'tool', tabId: 'graphql' });
+    expect(pathForTab('graphql')).toBe('/graphql-formatter');
+  });
+
+  it('keeps the retired /graphql slug resolving', () => {
+    // Vercel answers it with a 308, but a self-hosted static copy has no
+    // redirect rules and a kept share link still points at it.
+    expect(resolveRoute('/graphql')).toEqual({ kind: 'tool', tabId: 'graphql' });
+    expect(isSlugAlias('graphql')).toBe(true);
+    expect(isSlugAlias('graphql-formatter')).toBe(false);
   });
 
   it('resolves the renamed slugs', () => {

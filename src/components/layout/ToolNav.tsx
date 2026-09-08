@@ -6,6 +6,7 @@ import {
   CONTENT_PAGE_NAV,
   REPO_URL,
   contentPagesInGroup,
+  pathForTab,
   type ContentPageGroup,
   type ContentPageId,
 } from '@/constants/routes';
@@ -212,9 +213,20 @@ function ToolPanel({ selected, onPick, onNavigateToPage, onCollapse }: PanelProp
           const isActive = tool.id === activeTab;
           return (
             <li key={tool.id}>
-              <button
-                type="button"
-                onClick={() => onPick(tool.id)}
+              {/* A real anchor, not a button with a click handler. Every tool has
+                  a crawlable URL, so the navigation that leads to it should carry
+                  one: a crawler can follow it, and ⌘/Ctrl-click opens a tool in a
+                  new tab the way the address it points at implies it should.
+                  Plain clicks are still handled in-app — the SPA never reloads. */}
+              <a
+                href={pathForTab(tool.id)}
+                onClick={(event) => {
+                  // Let the browser keep the clicks that mean "somewhere else":
+                  // new tab, new window, download.
+                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  onPick(tool.id);
+                }}
                 aria-current={isActive ? 'page' : undefined}
                 title={tool.description}
                 className={cn(
@@ -226,7 +238,7 @@ function ToolPanel({ selected, onPick, onNavigateToPage, onCollapse }: PanelProp
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{tool.label}</span>
-              </button>
+              </a>
             </li>
           );
         })}
