@@ -6,7 +6,10 @@ import { parseJSON } from './json';
 import { yamlToJson } from './yaml';
 import { parseXML } from './xml';
 import { formatSQL } from './sql';
-import { parseGraphQL } from './graphql';
+import {
+  InputTooLargeError as PackageInputTooLargeError,
+  parseGraphQL,
+} from '@devxray/graphql-formatter';
 import { parseCSV } from './csv';
 import { renderMarkdown } from './markdown';
 import { encodeBase64 } from './base64';
@@ -58,12 +61,6 @@ const CASES: readonly {
     limit: LIMITS.INPUT.SQL,
     ok: () => formatSQL('select 1'),
     tooBig: () => formatSQL(`select '${bytes(LIMITS.INPUT.SQL)}'`),
-  },
-  {
-    name: 'GraphQL',
-    limit: LIMITS.INPUT.GRAPHQL,
-    ok: () => parseGraphQL('{ a }'),
-    tooBig: () => parseGraphQL(`{ a(x: "${bytes(LIMITS.INPUT.GRAPHQL)}") }`),
   },
   {
     name: 'CSV',
@@ -171,5 +168,35 @@ describe('CSV survives the row counts that used to crash it', () => {
   it('pads ragged rows to the widest row without spreading them', () => {
     const table = parseCSV('a,b,c\n1\n2,3\n4,5,6', ',', true);
     expect(table.rows.every((r) => r.length === 3)).toBe(true);
+  });
+});
+
+/**
+ * GraphQL's ceiling moved with its engine.
+ *
+ * Input validation for GraphQL is now the package's responsibility, so it
+ * raises the package's own `InputTooLargeError` rather than Dev X-Ray's. What
+ * stays an application concern is *which* number gets passed in: GraphQLTab
+ * hands the package `LIMITS.INPUT.GRAPHQL`, so the budget still lives in one
+ * place even though the check no longer does.
+ */
+describe('GraphQL input ceiling (enforced by the package)', () => {
+  it('parses an ordinary document', () => {
+    expect(() => parseGraphQL('{ a }')).not.toThrow();
+  });
+
+  it('refuses a document past the ceiling Dev X-Ray configures', () => {
+    const oversized = `{ a(x: "${bytes(LIMITS.INPUT.GRAPHQL)}") }`;
+    expect(() => parseGraphQL(oversized, { maxInputBytes: LIMITS.INPUT.GRAPHQL })).toThrow(
+      PackageInputTooLargeError,
+    );
+  });
+
+  it('applies its own default when Dev X-Ray passes nothing', () => {
+    // The package default and the app budget agree today; this pins that so a
+    // change to either is a visible decision rather than a silent drift.
+    expect(() => parseGraphQL(`{ a(x: "${bytes(LIMITS.INPUT.GRAPHQL)}") }`)).toThrow(
+      PackageInputTooLargeError,
+    );
   });
 });

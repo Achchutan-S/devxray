@@ -1,0 +1,47 @@
+{
+  "name": "@devxray/graphql-formatter",
+  "version": "1.0.0",
+  "description": "Framework-free GraphQL formatting, analysis and field filtering. No React, no DOM, no browser globals.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": "^18.0.0 || >=20.0.0"
+  },
+  "keywords": [
+    "graphql",
+    "formatter",
+    "prettier",
+    "ast"
+  ],
+  "peerDependencies": {
+    "graphql": "^16.0.0"
+  },
+  "optionalDependencies": {
+    "prettier": "^3.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Achchutan-S/devxray.git",
+    "directory": "packages/graphql-formatter"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepack": "npm run build"
+  }
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  GraphQLParseError,
+  GraphQLSyntaxError,
   analyzeGraphQL,
   detectLiterals,
   extractGraphQLFields,
@@ -10,7 +10,7 @@ import {
   minifyGraphQL,
   parseGraphQL,
   unwrapGraphQLPayload,
-} from './graphql';
+} from '../src/index';
 
 const QUERY = `query GetUser($id: ID!) {
   user(id: $id, role: ADMIN) {
@@ -27,8 +27,8 @@ describe('parseGraphQL', () => {
       parseGraphQL('query { user { id }');
       expect.unreachable('should have thrown');
     } catch (error) {
-      expect(error).toBeInstanceOf(GraphQLParseError);
-      const e = error as GraphQLParseError;
+      expect(error).toBeInstanceOf(GraphQLSyntaxError);
+      const e = error as GraphQLSyntaxError;
       expect(e.line).toBeGreaterThan(0);
       expect(e.offset).not.toBeNull();
     }
@@ -186,12 +186,12 @@ describe('unwrapGraphQLPayload', () => {
 
 describe('formatGraphQL', () => {
   it('formats via prettier and stays parseable', async () => {
-    const formatted = await formatGraphQL('{user{id name}}');
+    const { formatted } = await formatGraphQL('{user{id name}}');
     expect(formatted).toContain('\n');
     expect(() => parseGraphQL(formatted)).not.toThrow();
   });
 
   it('rejects invalid input rather than returning it unchanged', async () => {
-    await expect(formatGraphQL('{ user {')).rejects.toBeInstanceOf(GraphQLParseError);
+    await expect(formatGraphQL('{ user {')).rejects.toBeInstanceOf(GraphQLSyntaxError);
   });
 });

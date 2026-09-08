@@ -1,4 +1,4 @@
-import { minifyGraphQL } from './graphql';
+import { minifyGraphQL } from '@devxray/graphql-formatter';
 
 export type ExportTarget = 'curl' | 'fetch' | 'python';
 

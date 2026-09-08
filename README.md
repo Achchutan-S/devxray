@@ -69,6 +69,16 @@ than pretending to restore something it can't.
   to run a Web Crypto HMAC check, and are never part of a share link, a log, or any
   stored state.
 
+## Reusable engines
+
+The GraphQL engine lives in its own package, `packages/graphql-formatter`,
+consumed by the app through npm workspaces. It has no React, store, editor or
+DOM dependency and can be used from any TypeScript or JavaScript project — see
+[its README](packages/graphql-formatter/README.md).
+
+That is currently the only extracted engine. The other tools still live in
+`src/utils/formatters/`; nothing about them is proven portable yet.
+
 ## Resource limits
 
 Everything runs on the main thread of the tab, so there is no server to absorb an

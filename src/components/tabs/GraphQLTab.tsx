@@ -4,9 +4,11 @@ import { toast } from 'sonner';
 import { CodeEditor, FieldSelector, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
 import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
 import { copyText } from '@/utils/clipboard';
-import { CONFIG } from '@/utils/constants';
+import { CONFIG, LIMITS } from '@/utils/constants';
+import { formatBytes } from '@/utils/resourceGuard';
 import {
-  GraphQLParseError,
+  GraphQLSyntaxError,
+  InputTooLargeError,
   analyzeGraphQL,
   extractGraphQLFields,
   extractLiteralsToVariables,
@@ -16,7 +18,7 @@ import {
   unwrapGraphQLPayload,
   type GQLField,
   type GQLStats,
-} from '@/utils/formatters/graphql';
+} from '@devxray/graphql-formatter';
 import {
   EXPORT_LANGUAGE,
   EXPORT_TARGETS,
@@ -57,6 +59,8 @@ export function GraphQLTab() {
   const { present } = history;
 
   const [formatted, setFormatted] = useState('');
+  /** True when Prettier could not load and the comment-dropping printer ran. */
+  const [usedFallbackPrinter, setUsedFallbackPrinter] = useState(false);
   const [fields, setFields] = useState<GQLField[]>([]);
   const [stats, setStats] = useState<GQLStats>(EMPTY_STATS);
   const [error, setError] = useState<string | null>(null);
@@ -90,19 +94,38 @@ export function GraphQLTab() {
         try {
           const nextStats = analyzeGraphQL(source);
           const nextFields = extractGraphQLFields(source);
-          const output = await formatGraphQL(source);
+          // `fallback: 'print'` keeps the offline behaviour this tool has always
+          // had — a cold service-worker cache should not make Format stop
+          // working. What changed is that the package now reports which printer
+          // ran, so the fallback can be disclosed instead of silently dropping
+          // the document's comments.
+          const result = await formatGraphQL(source, {
+            maxInputBytes: LIMITS.INPUT.GRAPHQL,
+            fallback: 'print',
+          });
           if (runId.current !== id) return;
 
           setStats(nextStats);
           setFields(nextFields);
-          setFormatted(output);
+          setFormatted(result.formatted);
+          setUsedFallbackPrinter(result.formatter === 'graphql-print');
           setError(null);
           setErrorOffset(null);
         } catch (caught) {
           if (runId.current !== id) return;
           // Last good output is kept on screen deliberately.
-          setError(caught instanceof Error ? caught.message : 'Invalid GraphQL');
-          setErrorOffset(caught instanceof GraphQLParseError ? caught.offset : null);
+          setError(
+            caught instanceof InputTooLargeError
+              ? // The package states the limit in bytes; the app says it the way
+                // every other tool here says it.
+                `Input is too large for GraphQL: ${formatBytes(caught.actualBytes)} against a ` +
+                `${formatBytes(caught.limitBytes)} limit. Dev X-Ray runs entirely in this tab, ` +
+                `so work is bounded to keep the window responsive.`
+              : caught instanceof Error
+                ? caught.message
+                : 'Invalid GraphQL',
+          );
+          setErrorOffset(caught instanceof GraphQLSyntaxError ? caught.offset : null);
         }
       })();
     }, CONFIG.PARSE_DEBOUNCE);
@@ -134,10 +157,18 @@ export function GraphQLTab() {
       toast.error('Nothing to format');
       return;
     }
-    void formatGraphQL(present.input)
+    void formatGraphQL(present.input, {
+      maxInputBytes: LIMITS.INPUT.GRAPHQL,
+      fallback: 'print',
+    })
       .then((result) => {
-        history.set({ ...present, input: result });
-        toast.success('Formatted');
+        history.set({ ...present, input: result.formatted });
+        setUsedFallbackPrinter(result.formatter === 'graphql-print');
+        toast.success(
+          result.formatter === 'prettier'
+            ? 'Formatted'
+            : 'Formatted with the built-in printer — comments were dropped',
+        );
       })
       .catch((caught: unknown) => {
         toast.error(caught instanceof Error ? caught.message : 'Invalid GraphQL');
@@ -290,6 +321,15 @@ export function GraphQLTab() {
           }
         />
         <InlineError message={error} kind="graphql" />
+        {usedFallbackPrinter && (
+          <div
+            role="status"
+            className="shrink-0 border-b border-warning/30 bg-warning-soft px-3 py-2 text-xs text-warning"
+          >
+            Prettier could not be loaded, so this was formatted with the built-in
+            printer. The output is valid GraphQL, but comments have been dropped.
+          </div>
+        )}
         <PaneBody>
           <CodeEditor
             value={present.input}

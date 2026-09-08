@@ -20,7 +20,8 @@ import {
   type FieldNode,
   type ValueNode,
 } from 'graphql';
-import { assertInputWithinLimit } from '@/utils/resourceGuard';
+import { DEFAULT_MAX_INPUT_BYTES, byteLength } from './limits.js';
+import { FormatterUnavailableError, GraphQLSyntaxError, InputTooLargeError } from './errors.js';
 
 export interface GQLStats {
   readonly maxDepth: number;
@@ -57,29 +58,20 @@ export interface UnwrappedPayload {
   readonly operationName: string | null;
 }
 
-export class GraphQLParseError extends Error {
-  readonly line: number | null;
-  readonly column: number | null;
-  readonly offset: number | null;
-
-  constructor(message: string, line: number | null, column: number | null, offset: number | null) {
-    super(message);
-    this.name = 'GraphQLParseError';
-    this.line = line;
-    this.column = column;
-    this.offset = offset;
-  }
-}
 
 /** Parses, normalising `GraphQLError` into something with a usable offset. */
-export function parseGraphQL(source: string): DocumentNode {
-  assertInputWithinLimit(source, 'GRAPHQL', 'GraphQL');
+export function parseGraphQL(source: string, options: LimitOptions = {}): DocumentNode {
+  const limit = options.maxInputBytes ?? DEFAULT_MAX_INPUT_BYTES;
+  if (limit !== Infinity) {
+    const actual = byteLength(source);
+    if (actual > limit) throw new InputTooLargeError(actual, limit);
+  }
   try {
     return parse(source, { noLocation: false });
   } catch (error) {
     const gqlError = error as { message?: string; locations?: { line: number; column: number }[] };
     const location = gqlError.locations?.[0];
-    throw new GraphQLParseError(
+    throw new GraphQLSyntaxError(
       gqlError.message ?? 'Invalid GraphQL',
       location?.line ?? null,
       location?.column ?? null,
@@ -97,32 +89,128 @@ export function lineColumnToOffset(source: string, line: number, column: number)
   return offset + column - 1;
 }
 
-/**
- * Formats with Prettier, falling back to the `graphql` printer.
- *
- * Prettier is loaded on demand; if that import fails (offline on a cold cache,
- * say) the AST printer still produces correct, readable output.
- */
-export async function formatGraphQL(source: string): Promise<string> {
-  const ast = parseGraphQL(source);
+/** Options accepted by every entry point that reads a document. */
+export interface LimitOptions {
+  /**
+   * Ceiling in UTF-8 bytes. Defaults to DEFAULT_MAX_INPUT_BYTES.
+   * Pass `Infinity` to disable the check.
+   */
+  readonly maxInputBytes?: number;
+}
 
+export interface FormatOptions extends LimitOptions {
+  /**
+   * What to do when Prettier cannot be loaded.
+   *
+   * `'error'` (default) throws FormatterUnavailableError. `'print'` opts into
+   * the built-in printer, accepting that comments are dropped.
+   */
+  readonly fallback?: 'error' | 'print';
+}
+
+/** Which printer actually produced the output. */
+export type FormatterUsed = 'prettier' | 'graphql-print';
+
+export interface FormatResult {
+  readonly formatted: string;
+  /**
+   * Always tells the caller which printer ran.
+   *
+   * This is the whole reason the result is an object rather than a string. The
+   * two printers do not agree, and the difference is not cosmetic: the built-in
+   * printer discards comments entirely. A caller that shows the output to a
+   * human needs to be able to say so.
+   */
+  readonly formatter: FormatterUsed;
+}
+
+/**
+ * Loads Prettier's standalone build and its GraphQL plugin.
+ *
+ * Dynamic so that a bundler can keep Prettier out of the initial chunk —
+ * formatting is a deliberate action, not something every page load pays for.
+ * The import specifiers are static strings so bundlers can still analyse them.
+ */
+async function loadPrettier(): Promise<
+  ((source: string, options: object) => Promise<string>) | null
+> {
+  const [standalone, graphqlPlugin] = await Promise.all([
+    import('prettier/standalone'),
+    import('prettier/plugins/graphql'),
+  ]);
+  const format = standalone.format ?? standalone.default?.format;
+  const plugin = graphqlPlugin.default ?? graphqlPlugin;
+  if (typeof format !== 'function') return null;
+  return (source, options) => format(source, { ...options, plugins: [plugin] });
+}
+
+/**
+ * Formats a document with Prettier.
+ *
+ * Prettier is the reference formatter here because it is what most projects
+ * actually format GraphQL with, and because it preserves comments — which the
+ * `graphql` package's own printer does not.
+ *
+ * That asymmetry is why this function does not silently fall back. An earlier
+ * version caught any Prettier load failure and returned `print(ast)` instead,
+ * so the same document could format two different ways depending on whether a
+ * dynamic import happened to resolve — and in the comment case, one of those
+ * ways quietly deleted the user's comments. Callers who want the built-in
+ * printer must now ask for it, and the result says which one ran.
+ *
+ * @throws GraphQLSyntaxError    the document is not valid GraphQL
+ * @throws InputTooLargeError    the document is above `maxInputBytes`
+ * @throws FormatterUnavailableError  Prettier could not load and `fallback` is `'error'`
+ */
+export async function formatGraphQL(
+  source: string,
+  options: FormatOptions = {},
+): Promise<FormatResult> {
+  // Parse first: a syntax error is the caller's problem regardless of which
+  // printer would have run, and it must not be reported as "formatter missing".
+  const ast = parseGraphQL(source, options);
+
+  let format: Awaited<ReturnType<typeof loadPrettier>> = null;
+  let loadFailure: unknown = null;
   try {
-    const [standalone, graphqlPlugin] = await Promise.all([
-      import('prettier/standalone'),
-      import('prettier/plugins/graphql'),
-    ]);
-    const format = standalone.format ?? standalone.default?.format;
-    const plugin = graphqlPlugin.default ?? graphqlPlugin;
-    if (typeof format === 'function') {
-      const result = await format(source, { parser: 'graphql', plugins: [plugin] });
-      return result.trimEnd();
-    }
+    format = await loadPrettier();
   } catch (error) {
-    if (error instanceof GraphQLParseError) throw error;
-    // Fall through to the AST printer below.
+    loadFailure = error;
   }
 
-  return print(ast).trimEnd();
+  if (format !== null) {
+    const result = await format(source, { parser: 'graphql' });
+    return { formatted: result.trimEnd(), formatter: 'prettier' };
+  }
+
+  if (options.fallback !== 'print') {
+    throw new FormatterUnavailableError(loadFailure);
+  }
+  return { formatted: print(ast).trimEnd(), formatter: 'graphql-print' };
+}
+
+/**
+ * Formats using the `graphql` package's own printer. Synchronous, no Prettier.
+ *
+ * Useful where a dependency-free, non-async printer matters. Be aware of what
+ * it costs: `print()` works from the AST, and the AST does not retain comments,
+ * so every `#` comment in the input is absent from the output. It also spaces
+ * object literals differently from Prettier (`{a: 1}` rather than `{ a: 1 }`).
+ *
+ * @throws GraphQLSyntaxError, InputTooLargeError
+ */
+export function printGraphQL(source: string, options: LimitOptions = {}): string {
+  return print(parseGraphQL(source, options)).trimEnd();
+}
+
+/** True when the document parses. Never throws for malformed input. */
+export function isValidGraphQL(source: string, options: LimitOptions = {}): boolean {
+  try {
+    parseGraphQL(source, options);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Removes all ignorable characters. String literals are preserved exactly. */
