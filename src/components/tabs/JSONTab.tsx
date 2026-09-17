@@ -3,7 +3,7 @@ import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Redo2, Un
 import { toast } from 'sonner';
 import { CodeEditor, FieldSelector, IconButton, InlineError, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
 import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
-import { useHistoryStore, useUIStore } from '@/store';
+import { useHistoryStore, usePreferenceStore, useUIStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
@@ -57,7 +57,12 @@ export function JSONTab() {
   const [error, setError] = useState<string | null>(null);
   const [errorOffset, setErrorOffset] = useState<number | null>(null);
   const [isParsing, setIsParsing] = useState(false);
-  const [viewMode, setViewMode] = useState<'tree' | 'raw'>('tree');
+  const jsonView = usePreferenceStore((state) => state.jsonView);
+  const setJsonView = usePreferenceStore((state) => state.setJsonView);
+  // Large files force raw view for that session only, without overwriting the
+  // user's saved preference.
+  const [rawOverride, setRawOverride] = useState(false);
+  const viewMode = rawOverride ? 'raw' : jsonView;
   const [expandVersion, setExpandVersion] = useState(0);
   const [allExpanded, setAllExpanded] = useState(true);
 
@@ -145,7 +150,7 @@ export function JSONTab() {
           });
           setError(null);
           setErrorOffset(null);
-          if (data.isLargeFile) setViewMode('raw');
+          if (data.isLargeFile) setRawOverride(true);
         } else {
           setError(data.error);
           setErrorOffset(null);
@@ -328,7 +333,10 @@ export function JSONTab() {
               <div className="flex overflow-hidden rounded border border-line" role="group" aria-label="View mode">
                 <button
                   type="button"
-                  onClick={() => setViewMode('tree')}
+                  onClick={() => {
+                    setRawOverride(false);
+                    setJsonView('tree');
+                  }}
                   disabled={!treeAvailable}
                   aria-pressed={viewMode === 'tree'}
                   className={`px-2 py-1 text-xs ${viewMode === 'tree' ? 'bg-accent text-accent-on' : 'text-fg-muted hover:text-fg'} disabled:opacity-40`}
@@ -337,7 +345,10 @@ export function JSONTab() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode('raw')}
+                  onClick={() => {
+                    setRawOverride(false);
+                    setJsonView('raw');
+                  }}
                   aria-pressed={viewMode === 'raw'}
                   className={`px-2 py-1 text-xs ${viewMode === 'raw' ? 'bg-accent text-accent-on' : 'text-fg-muted hover:text-fg'}`}
                 >

@@ -4,6 +4,7 @@
  * consumers on unrelated changes.
  */
 export { usePreferenceStore } from './usePreferenceStore';
+export type { JsonView } from './usePreferenceStore';
 export { useHistoryStore, enforceHistoryLimits } from './useHistoryStore';
 export type { NewHistoryEntry } from './useHistoryStore';
 export { useUIStore } from './useUIStore';

@@ -39,6 +39,30 @@ that fails to decode, or names a tool id that no longer exists, is rejected
 safely with a `toast.error` rather than failing silently or loading a broken
 state.
 
+## Routing & SEO
+
+Every tool has a clean, crawlable URL (`/json`, `/graphql-formatter`, `/uuid`, …)
+via a small custom router over `history.pushState` — no router dependency, and
+the hash stays reserved for share links. `src/constants/routes.ts` is the single
+source of truth for the slug table, guarded by `assertRouteCoverage()` in
+`src/constants/routes.test.ts` so a tool can't ship without one.
+
+`npm run build` runs `scripts/prerender.mjs` after `vite build`, emitting a real
+directory per route (`dist/<slug>/index.html`) with a unique `<title>`,
+description, canonical and Open Graph tags rewritten in. The GraphQL Formatter
+route goes further, as a pilot: its prerendered document contains a full
+crawlable shell inside `#root` — an `<h1>`, real body copy, a JSON-LD
+`WebApplication` block, and genuine `<a href>` tool links — that React's
+`createRoot().render()` replaces the instant the app mounts, so nothing is
+hidden from users and nothing is faked for crawlers. See
+[docs/SEO_GRAPHQL_PILOT.md](docs/SEO_GRAPHQL_PILOT.md) for the full before/after
+and the plan to roll it out to the other tools.
+
+The tool's slug was renamed `/graphql` → `/graphql-formatter`; `/graphql` still
+resolves everywhere it needs to — a 308 on Vercel (`vercel.json`), a
+self-canonicalising alias page on any other static host, and a client-side
+lookup (`isSlugAlias`/`tabForSlug`) for offline or cached share links.
+
 ## History
 
 One clear, deliberate action per tool — never a keystroke — is recorded to a local
@@ -127,8 +151,9 @@ npm run dev          # http://127.0.0.1:5173
 | Script | Purpose |
 |---|---|
 | `npm run dev` | Vite dev server, bound to loopback only |
-| `npm run build` | Production build into `dist/` (includes the service worker) |
+| `npm run build` | Production build into `dist/` (includes the service worker and the prerender step) |
 | `npm run preview` | Serve the production build locally |
+| `npm run prerender` | Re-run just the prerender step against an existing `dist/` |
 | `npm run type-check` | `tsc --noEmit` over `src/` and the config files |
 | `npm run lint` | ESLint, zero warnings tolerated |
 | `npm test` | Vitest unit tests |

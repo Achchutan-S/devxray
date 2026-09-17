@@ -8,6 +8,8 @@ import { addTabToBar, applyTabOrder, defaultBarTabs, removeTabFromBar } from '@/
 import { applyTheme, DEFAULT_THEME } from '@/utils/theme';
 import { applyMonacoTheme } from '@/utils/monacoThemes';
 
+export type JsonView = 'raw' | 'tree';
+
 interface PreferenceState {
   theme: Theme;
   /** Tab ids pinned to the front of the bar. */
@@ -23,6 +25,8 @@ interface PreferenceState {
   lastActiveTab: string | null;
   /** Collapsed state of the navigation's contextual tool panel. */
   navPanelCollapsed: boolean;
+  /** JSON tool's result view. */
+  jsonView: JsonView;
 
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -33,6 +37,7 @@ interface PreferenceState {
   setBarTabs: (ids: string[]) => void;
   setLastActiveTab: (tabId: string) => void;
   setNavPanelCollapsed: (collapsed: boolean) => void;
+  setJsonView: (view: JsonView) => void;
   resetTabLayout: () => void;
 }
 
@@ -60,6 +65,7 @@ export const usePreferenceStore = create<PreferenceState>()(
       barTabs: defaultBarTabs(TAB_IDS),
       lastActiveTab: null,
       navPanelCollapsed: false,
+      jsonView: 'raw',
 
       setTheme: (theme) => {
         syncTheme(theme);
@@ -96,6 +102,7 @@ export const usePreferenceStore = create<PreferenceState>()(
       setBarTabs: (ids) => set({ barTabs: ids }),
       setLastActiveTab: (tabId) => set({ lastActiveTab: tabId }),
       setNavPanelCollapsed: (collapsed) => set({ navPanelCollapsed: collapsed }),
+      setJsonView: (view) => set({ jsonView: view }),
       resetTabLayout: () =>
         set({ pinnedTabs: [], tabOrder: [], barTabs: defaultBarTabs(TAB_IDS) }),
     }),
