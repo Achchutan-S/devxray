@@ -98,7 +98,7 @@ export function JsonToTypeTab() {
   const outputLanguage = TYPE_TARGETS.find((t) => t.id === target)?.language ?? 'typescript';
 
   return (
-    <TabShell split>
+    <TabShell split resizable="jsontotype">
       <Pane bordered>
         <PaneHeader
           title="JSON sample"

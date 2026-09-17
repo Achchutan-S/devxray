@@ -148,7 +148,7 @@ export function CronTab() {
 
       <InlineError message={error} />
 
-      <TabShell split>
+      <TabShell split resizable="cron">
         <Pane bordered>
           <PaneHeader title="Breakdown" />
           <PaneBody scroll className="p-3">

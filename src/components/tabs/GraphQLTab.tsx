@@ -296,7 +296,7 @@ export function GraphQLTab() {
   );
 
   return (
-    <TabShell split>
+    <TabShell split resizable="graphql">
       <Pane bordered>
         <PaneHeader
           title="Query"

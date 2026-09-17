@@ -89,7 +89,7 @@ export function CurlTab() {
   const language = CURL_TARGETS.find((t) => t.id === target)?.language ?? 'javascript';
 
   return (
-    <TabShell split>
+    <TabShell split resizable="curl">
       <Pane bordered>
         <PaneHeader
           title="cURL command"

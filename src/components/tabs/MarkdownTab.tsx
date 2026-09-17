@@ -99,7 +99,7 @@ export function MarkdownTab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="markdown">
       <InlineError message={renderError} />
       <Pane bordered>
         <PaneHeader

@@ -286,7 +286,7 @@ export function JSONTab() {
   };
 
   return (
-    <TabShell split>
+    <TabShell split resizable="json">
       <Pane bordered>
         <PaneHeader
           title="JSON"

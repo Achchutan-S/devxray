@@ -114,7 +114,7 @@ export function Base64Tab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="base64">
       <Pane bordered>
         <PaneHeader
           title={direction === 'encode' ? 'Plain text' : 'Encoded'}

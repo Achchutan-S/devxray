@@ -83,7 +83,7 @@ export function PlaceholderTab() {
   useCommandPaletteCommands(activeTab, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="placeholder">
       <Pane bordered>
         <PaneHeader
           title="Input"

@@ -120,7 +120,7 @@ export function ColorTab() {
 
 
   return (
-    <TabShell split>
+    <TabShell split resizable="color">
       <Pane bordered>
         <PaneHeader
           title="Color"

@@ -127,7 +127,7 @@ export function JWTTab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="jwt">
       <Pane bordered>
         <PaneHeader
           title="Token"

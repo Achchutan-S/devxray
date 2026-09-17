@@ -113,42 +113,38 @@ export function DiffTab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell>
-      {/* Inputs: fixed-height row that never grows, so the diff below owns the slack. */}
-      <div className="flex shrink-0 flex-col border-b border-line md:flex-row">
-        <div className="flex min-w-0 flex-1 flex-col border-b border-line md:border-b-0 md:border-r">
+    <TabShell resizable="diff-vertical" direction="vertical" minFraction={0.15}>
+      {/* Input row: draggable against the diff pane below via the vertical splitter. */}
+      <div className="flex min-h-0 flex-1 flex-col border-b border-line md:flex-row">
+        <div className="flex min-w-0 min-h-0 flex-1 flex-col border-b border-line md:border-b-0 md:border-r">
           <PaneHeader
             title="Original"
             actions={
               <IconButton icon={Copy} label="Copy original" onClick={() => copy(original, 'original')} />
             }
           />
-          <div className="h-[180px] overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <CodeEditor
               value={original}
               onChange={setOriginal}
               language={language}
-              flush={false}
-              height="180px"
               ariaLabel="Original text"
             />
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 min-h-0 flex-1 flex-col">
           <PaneHeader
             title="Modified"
             actions={
               <IconButton icon={Copy} label="Copy modified" onClick={() => copy(modified, 'modified')} />
             }
           />
-          <div className="h-[180px] overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             <CodeEditor
               value={modified}
               onChange={setModified}
               language={language}
-              flush={false}
-              height="180px"
               ariaLabel="Modified text"
             />
           </div>

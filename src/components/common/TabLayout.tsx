@@ -1,5 +1,21 @@
-import type { ReactNode } from 'react';
+import {
+  Children,
+  useCallback,
+  useRef,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+} from 'react';
 import { cn } from '@/utils/cn';
+import { usePreferenceStore } from '@/store/usePreferenceStore';
+import {
+  clampFraction,
+  MIN_PANE_FRACTION,
+  pxDeltaToFraction,
+  snapFraction,
+  validatePersistedFraction,
+} from '@/utils/panelSizing';
 
 /**
  * Layout primitives for tab content.
@@ -17,10 +33,37 @@ interface TabShellProps {
   children: ReactNode;
   /** Stack vertically on mobile, side by side from `md` up. */
   split?: boolean;
+  /**
+   * Opt-in draggable splitter between the two direct children, persisted
+   * under this id in `usePreferenceStore.panelSizes`. Only meaningful with
+   * exactly two children (two `<Pane>`s, or any two regions).
+   */
+  resizable?: string;
+  /** Axis of the splitter: 'horizontal' divides left/right (default), 'vertical' divides top/bottom. */
+  direction?: 'horizontal' | 'vertical';
+  /** Minimum fraction either region may shrink to. Defaults to `MIN_PANE_FRACTION` (0.2). */
+  minFraction?: number;
   className?: string;
 }
 
-export function TabShell({ children, split = false, className }: TabShellProps) {
+const ARROW_STEP = 0.02;
+
+export function TabShell({
+  children,
+  split = false,
+  resizable,
+  direction = 'horizontal',
+  minFraction,
+  className,
+}: TabShellProps) {
+  if (resizable) {
+    return (
+      <ResizableTabShell id={resizable} direction={direction} minFraction={minFraction} className={className}>
+        {children}
+      </ResizableTabShell>
+    );
+  }
+
   return (
     <div
       className={cn(
@@ -30,6 +73,139 @@ export function TabShell({ children, split = false, className }: TabShellProps) 
       )}
     >
       {children}
+    </div>
+  );
+}
+
+interface DragState {
+  /** Pointer position along the drag axis (clientX for horizontal, clientY for vertical) at drag start. */
+  start: number;
+  startFraction: number;
+  /** Container size along the drag axis (width for horizontal, height for vertical) at drag start. */
+  containerSize: number;
+}
+
+function ResizableTabShell({
+  id,
+  direction = 'horizontal',
+  minFraction = MIN_PANE_FRACTION,
+  children,
+  className,
+}: {
+  id: string;
+  direction?: 'horizontal' | 'vertical';
+  minFraction?: number;
+  children: ReactNode;
+  className?: string;
+}) {
+  const isVertical = direction === 'vertical';
+  const fraction = validatePersistedFraction(usePreferenceStore((state) => state.panelSizes[id]), minFraction);
+  const setPanelSize = usePreferenceStore((state) => state.setPanelSize);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const firstPaneRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const liveFractionRef = useRef(fraction);
+
+  const applyFraction = useCallback((next: number) => {
+    liveFractionRef.current = next;
+    firstPaneRef.current?.style.setProperty('--pane-fraction', String(next));
+  }, []);
+
+  const commit = useCallback(
+    (next: number) => {
+      applyFraction(next);
+      setPanelSize(id, next);
+    },
+    [applyFraction, id, setPanelSize],
+  );
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      dragRef.current = {
+        start: isVertical ? event.clientY : event.clientX,
+        startFraction: fraction,
+        containerSize: isVertical ? rect.height : rect.width,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [fraction, isVertical],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const pos = isVertical ? event.clientY : event.clientX;
+      const delta = pxDeltaToFraction(pos - drag.start, drag.containerSize);
+      applyFraction(snapFraction(clampFraction(drag.startFraction + delta, minFraction)));
+    },
+    [applyFraction, isVertical, minFraction],
+  );
+
+  const handlePointerUp = useCallback(() => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    setPanelSize(id, liveFractionRef.current);
+  }, [id, setPanelSize]);
+
+  const handleDoubleClick = useCallback(() => commit(0.5), [commit]);
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const decreaseKey = isVertical ? 'ArrowUp' : 'ArrowLeft';
+      const increaseKey = isVertical ? 'ArrowDown' : 'ArrowRight';
+      if (event.key === decreaseKey || event.key === increaseKey) {
+        event.preventDefault();
+        commit(clampFraction(liveFractionRef.current + (event.key === decreaseKey ? -ARROW_STEP : ARROW_STEP), minFraction));
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        commit(0.5);
+      }
+    },
+    [commit, isVertical, minFraction],
+  );
+
+  const [first, second] = Children.toArray(children);
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn(
+        'flex-1 flex min-h-0 overflow-hidden flex-col',
+        !isVertical && 'md:flex-row',
+        className,
+      )}
+    >
+      <div
+        ref={firstPaneRef}
+        className="flex min-w-0 min-h-0 flex-1 md:flex-none md:shrink-0 md:grow-0 md:[flex-basis:calc(var(--pane-fraction,0.5)*100%)]"
+        style={{ '--pane-fraction': fraction } as CSSProperties}
+      >
+        {first}
+      </div>
+      <div
+        role="separator"
+        aria-orientation={isVertical ? 'horizontal' : 'vertical'}
+        aria-label="Resize panels"
+        aria-valuenow={Math.round(fraction * 100)}
+        aria-valuemin={Math.round(minFraction * 100)}
+        aria-valuemax={Math.round((1 - minFraction) * 100)}
+        tabIndex={0}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
+        className={cn(
+          'hidden md:block shrink-0 bg-line hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
+          isVertical ? 'h-1 w-full cursor-row-resize' : 'w-1 cursor-col-resize',
+        )}
+      />
+      <div className="flex min-w-0 min-h-0 flex-1">{second}</div>
     </div>
   );
 }

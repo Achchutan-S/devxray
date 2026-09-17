@@ -107,7 +107,7 @@ export function SqlTab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="sql">
       <Pane bordered>
         <PaneHeader
           title="SQL"

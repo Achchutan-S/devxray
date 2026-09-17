@@ -190,7 +190,7 @@ export function XMLTab() {
   );
 
   return (
-    <TabShell split>
+    <TabShell split resizable="xml">
       <Pane bordered>
         <PaneHeader
           title="XML"

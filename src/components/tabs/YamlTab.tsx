@@ -111,7 +111,7 @@ export function YamlTab() {
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
   return (
-    <TabShell split>
+    <TabShell split resizable="yaml">
       <Pane bordered>
         <PaneHeader
           title={labels.from}

@@ -27,6 +27,8 @@ interface PreferenceState {
   navPanelCollapsed: boolean;
   /** JSON tool's result view. */
   jsonView: JsonView;
+  /** First pane's width fraction per resizable TabShell, keyed by its `resizable` id. */
+  panelSizes: Record<string, number>;
 
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
@@ -38,6 +40,7 @@ interface PreferenceState {
   setLastActiveTab: (tabId: string) => void;
   setNavPanelCollapsed: (collapsed: boolean) => void;
   setJsonView: (view: JsonView) => void;
+  setPanelSize: (id: string, fraction: number) => void;
   resetTabLayout: () => void;
 }
 
@@ -66,6 +69,7 @@ export const usePreferenceStore = create<PreferenceState>()(
       lastActiveTab: null,
       navPanelCollapsed: false,
       jsonView: 'raw',
+      panelSizes: {},
 
       setTheme: (theme) => {
         syncTheme(theme);
@@ -103,30 +107,39 @@ export const usePreferenceStore = create<PreferenceState>()(
       setLastActiveTab: (tabId) => set({ lastActiveTab: tabId }),
       setNavPanelCollapsed: (collapsed) => set({ navPanelCollapsed: collapsed }),
       setJsonView: (view) => set({ jsonView: view }),
+      setPanelSize: (id, fraction) =>
+        set((state) => ({ panelSizes: { ...state.panelSizes, [id]: fraction } })),
       resetTabLayout: () =>
         set({ pinnedTabs: [], tabOrder: [], barTabs: defaultBarTabs(TAB_IDS) }),
     }),
     {
       name: STORAGE_KEYS.preferences,
       storage: createJSONStorage(() => safeLocalStorage),
-      version: 2,
+      version: 3,
       /**
        * v1 had no `barTabs`: the bar was the first DEFAULT_BAR_TAB_COUNT
        * unpinned tools in `tabOrder`. Seeding from that same rule means an
        * existing user opens the app to exactly the bar they left behind, and
        * only then starts controlling it directly.
+       *
+       * v2 had no `panelSizes`; a missing key already defaults to `{}` via
+       * the store's initial state, so v2→v3 is a pass-through.
        */
       migrate: (persisted, version) => {
         const state = persisted as Partial<PreferenceState> | undefined;
-        if (state === undefined || version >= 2) return persisted;
+        if (state === undefined || version >= 3) return persisted;
 
-        const ordered = applyTabOrder(TAB_IDS, state.tabOrder ?? []);
-        const pinned = new Set(state.pinnedTabs ?? []);
-        const slots = Math.max(0, CONFIG.DEFAULT_BAR_TAB_COUNT - pinned.size);
-        return {
-          ...state,
-          barTabs: ordered.filter((id) => !pinned.has(id)).slice(0, slots),
-        };
+        if (version < 2) {
+          const ordered = applyTabOrder(TAB_IDS, state.tabOrder ?? []);
+          const pinned = new Set(state.pinnedTabs ?? []);
+          const slots = Math.max(0, CONFIG.DEFAULT_BAR_TAB_COUNT - pinned.size);
+          return {
+            ...state,
+            barTabs: ordered.filter((id) => !pinned.has(id)).slice(0, slots),
+          };
+        }
+
+        return state;
       },
       onRehydrateStorage: () => (state) => {
         // Re-apply after hydration so Monaco (which may not have existed when the

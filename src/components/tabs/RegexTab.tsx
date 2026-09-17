@@ -267,7 +267,7 @@ export function RegexTab() {
 
       <InlineError message={error} />
 
-      <TabShell split>
+      <TabShell split resizable="regex">
         <Pane bordered>
           <PaneHeader title="Test string" />
           <PaneBody className="p-3">

@@ -97,7 +97,7 @@ export function TextCaseTab() {
 
 
   return (
-    <TabShell split>
+    <TabShell split resizable="textcase">
       <InlineError message={convertError} />
       <Pane bordered>
         <PaneHeader
