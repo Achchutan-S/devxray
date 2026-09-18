@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Eraser, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { InlineError, IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useDebounce,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
@@ -58,9 +65,10 @@ export function MarkdownTab() {
   const handleClear = useCallback(() => setInput(''), [setInput]);
 
   const handleFileDrop = useCallback(
-    (content: string, fileName: string) => {
-      setInput(content);
-      toast.success(`Opened ${fileName}`);
+    (payload: FileDropPayload) => {
+      if (payload.kind !== 'text') return;
+      setInput(payload.content);
+      toast.success(`Opened ${payload.fileName}`);
     },
     [setInput],
   );

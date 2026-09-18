@@ -50,8 +50,11 @@ const SHARE_TOOLS: Readonly<Record<string, unknown>> = {
   diff: { original: 'a', modified: 'b' },
 };
 
-/** Deliberately excluded: state too large for a URL, or not the user's to share. */
-const NOT_SHAREABLE = ['mapper', 'history'] as const;
+/**
+ * Deliberately excluded: state too large for a URL, not the user's to share, or
+ * (Image) a File/Blob that has no meaningful URL-safe text representation.
+ */
+const NOT_SHAREABLE = ['mapper', 'history', 'image'] as const;
 
 describe('share link format is unchanged', () => {
   it('still encodes as #/{tab}/{lz-compressed payload}', () => {
@@ -113,14 +116,14 @@ describe('routing regression: the entry URL decides the tool', () => {
 });
 
 describe('share coverage', () => {
-  it('covers every tool except the two deliberately excluded ones', () => {
+  it('covers every tool except the deliberately excluded ones', () => {
     const shareable = TABS.map((t) => t.id).filter(
       (id) => !(NOT_SHAREABLE as readonly string[]).includes(id),
     );
     expect(Object.keys(SHARE_TOOLS).sort()).toEqual(shareable.sort());
   });
 
-  it('excludes Mapper and History by design', () => {
+  it('excludes Mapper, History and Image by design', () => {
     for (const id of NOT_SHAREABLE) {
       expect(SHARE_TOOLS).not.toHaveProperty(id);
     }

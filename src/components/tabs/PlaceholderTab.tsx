@@ -11,7 +11,7 @@ import {
   ToolButton,
 } from '@/components/common';
 import { getTab } from '@/constants/tabs';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, type FileDropPayload } from '@/hooks';
 import { useUIStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 
@@ -53,9 +53,10 @@ export function PlaceholderTab() {
     });
   }, [output]);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
-    setInput(content);
-    toast.success(`Opened ${fileName}`);
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    setInput(payload.content);
+    toast.success(`Opened ${payload.fileName}`);
   }, []);
 
   useFileDropCallback(activeTab, handleFileDrop);

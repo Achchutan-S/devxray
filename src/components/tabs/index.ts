@@ -35,6 +35,7 @@ const IMPLEMENTED: Record<string, LazyExoticComponent<ComponentType>> = {
   textcase: lazy(() => import('./TextCaseTab').then((m) => ({ default: m.TextCaseTab }))),
   color: lazy(() => import('./ColorTab').then((m) => ({ default: m.ColorTab }))),
   cron: lazy(() => import('./CronTab').then((m) => ({ default: m.CronTab }))),
+  image: lazy(() => import('./ImageTab').then((m) => ({ default: m.ImageTab }))),
 };
 
 export const TAB_COMPONENTS: Readonly<Record<string, LazyExoticComponent<ComponentType>>> =

@@ -12,7 +12,13 @@ import {
   IconButton,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
@@ -89,9 +95,10 @@ export function Base64Tab() {
     });
   }, [output, input, direction, addHistory]);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
-    setInput(content);
-    toast.success(`Opened ${fileName}`);
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    setInput(payload.content);
+    toast.success(`Opened ${payload.fileName}`);
   }, []);
   useFileDropCallback(TAB_ID, handleFileDrop);
 
@@ -144,7 +151,7 @@ export function Base64Tab() {
           title={direction === 'encode' ? 'Encoded' : 'Plain text'}
           actions={
             <>
-              <div className="flex overflow-hidden rounded border border-line" role="group" aria-label="Base64 mode">
+              <div className="flex shrink-0 overflow-hidden rounded border border-line" role="group" aria-label="Base64 mode">
                 {(['base64', 'url'] as const).map((option) => (
                   <button
                     key={option}

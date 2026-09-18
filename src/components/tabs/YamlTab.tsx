@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Copy, Eraser, Link2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useDebounce,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { convert, detectFormat, type ConversionDirection } from '@/utils/formatters/yaml';
@@ -75,7 +82,9 @@ export function YamlTab() {
     });
   }, [output]);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    const { content, fileName } = payload;
     setInput(content);
     setAutoDetect(true);
     toast.success(`Opened ${fileName}`);

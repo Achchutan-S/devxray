@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Eraser, Link2, Table as TableIcon, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
@@ -95,7 +101,9 @@ export function CSVTab() {
     setError(null);
   }, []);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    const { content, fileName } = payload;
     const detected = detectDelimiter(content);
     setInput(content);
     setDelimiter(detected);

@@ -92,6 +92,17 @@ export const LIMITS = {
     CURL: 256 * KB,
     /** JWTs are credentials, not documents; real ones are a few KB at most. */
     JWT: 64 * KB,
+    /**
+     * Decoded pixel count (width × height), not file bytes: a small, highly
+     * compressed file can still decode into an enormous bitmap, and it's the
+     * decoded size — not the file on disk — that canvas has to hold and draw.
+     * 40 million pixels is roughly 3x the review's own reference point (a
+     * 12 MP JPEG resizing in ~100–300 ms on the main thread), leaving headroom
+     * before the draw call itself becomes the freeze. Not independently
+     * profiled in this environment — no browser available here to measure —
+     * so treat this as a reasoned ceiling to revisit against real devices.
+     */
+    IMAGE: 40_000_000,
   },
 
   /** ---- Render ceilings. A safe parser still has to hand the DOM something sane. ---- */
@@ -104,6 +115,23 @@ export const LIMITS = {
     CSV_ROWS: 1_000,
     /** Children shown per container in the JSON tree before summarising. */
     JSON_TREE_CHILDREN: 200,
+    /**
+     * Ceiling on how many nodes the JSON path index (search, copy-path,
+     * highlight — see utils/jsonPath) will materialize for one document.
+     * Unlike JSON_TREE_CHILDREN this bounds the whole-document index, not just
+     * what's rendered, because search has to reach nodes the tree currently
+     * has collapsed or paginated away.
+     *
+     * A 10 MB document (LIMITS.INPUT.JSON) can, in the degenerate case of many
+     * tiny flat keys, decode to well over a million nodes — indexing that
+     * eagerly (a path array + a string per node) is real, avoidable memory and
+     * CPU work for a payload nobody will search that way. 50,000 nodes covers
+     * realistic large API responses (thousands of records) with headroom,
+     * while staying small enough that building the index is imperceptible.
+     * Not independently profiled in this environment — no browser available
+     * here to measure — so treat this as a reasoned ceiling, not a benchmark.
+     */
+    JSON_PATH_INDEX_NODES: 50_000,
   },
 
   /** ---- File intake. Checked against `File.size` before a byte is read. ---- */

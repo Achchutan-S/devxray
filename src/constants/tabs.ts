@@ -13,6 +13,7 @@ import {
   GitCompare,
   Hash,
   History,
+  Image,
   KeyRound,
   Layers,
   Link,
@@ -32,7 +33,7 @@ import {
 import type { TabCategory, TabDefinition } from '@/types';
 
 /**
- * The 23 tools. This is metadata only — the components behind these ids are
+ * The 24 tools. This is metadata only — the components behind these ids are
  * wired up per phase in src/components/tabs/index.ts.
  */
 export const TABS: readonly TabDefinition[] = [
@@ -59,6 +60,7 @@ export const TABS: readonly TabDefinition[] = [
   { id: 'textcase', label: 'Case', category: 'utility', icon: CaseSensitive, description: 'Convert text between naming cases' },
   { id: 'color', label: 'Color', category: 'utility', icon: Palette, description: 'Convert colours and check WCAG contrast' },
   { id: 'cron', label: 'Cron', category: 'utility', icon: CalendarClock, description: 'Explain cron expressions and next runs' },
+  { id: 'image', label: 'Image', category: 'utility', icon: Image, description: 'Resize and re-encode images entirely in the browser' },
 
   // Data
   { id: 'mockdata', label: 'Mock', category: 'data', icon: Shuffle, description: 'Generate mock records from a schema' },

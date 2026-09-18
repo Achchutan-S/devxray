@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys } from '@/hooks';
+import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, type FileDropPayload } from '@/hooks';
 import { useHistoryStore, useMapperStore, type MapperInputKey } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { flattenGraphQLSelections, flattenPaths, type FlatField } from '@/utils/mapper/flattenPaths';
@@ -268,10 +268,11 @@ export function MapperTab() {
   }, [importText, setRows]);
 
   const handleFileDrop = useCallback(
-    (content: string, fileName: string) => {
-      setInput('responseJson', content);
+    (payload: FileDropPayload) => {
+      if (payload.kind !== 'text') return;
+      setInput('responseJson', payload.content);
       setSourcesExpanded(true);
-      toast.success(`Loaded ${fileName} into Response JSON`);
+      toast.success(`Loaded ${payload.fileName} into Response JSON`);
     },
     [setInput],
   );

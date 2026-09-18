@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
+import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Redo2, Route, Search, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CodeEditor, FieldSelector, IconButton, InlineError, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  useUndoRedo,
+  type FileDropPayload,
+} from '@/hooks';
 import { useHistoryStore, usePreferenceStore, useUIStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
-import { CONFIG } from '@/utils/constants';
+import { CONFIG, LIMITS } from '@/utils/constants';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
 import {
   JSONParseError,
@@ -22,6 +29,9 @@ import {
 } from '@/utils/formatters/json';
 import type { JsonWorkerRequest, JsonWorkerResponse } from '@/workers/jsonParser.worker';
 import { consumeSharedState } from '@/utils/shareState';
+import { serializeJsonPath, type JsonPath } from '@/utils/jsonPath/path';
+import { buildJsonPathIndex } from '@/utils/jsonPath/traversal';
+import { searchJsonPathIndex } from '@/utils/jsonPath/search';
 
 const TAB_ID = 'json';
 
@@ -181,8 +191,51 @@ export function JSONTab() {
     }
   }, [filtered]);
 
+  // --- JSON path model: search, selection, copy-path, tree highlighting ---
+  // (see utils/jsonPath). Selection is the one source of truth: the tree's
+  // highlight id and the search index's lookups are both derived from it,
+  // never duplicated.
+  const [selectedPath, setSelectedPath] = useState<JsonPath | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const selectedId = useMemo(
+    () => (selectedPath === null ? null : serializeJsonPath(selectedPath)),
+    [selectedPath],
+  );
+
+  // Only built when the tree is actually showing (or about to) — search and
+  // copy-path have no reason to cost anything while the user stays in Raw.
+  const pathIndexResult = useMemo(() => {
+    if (filtered === null || viewMode !== 'tree' || !treeAvailable) return null;
+    return buildJsonPathIndex(filtered);
+  }, [filtered, viewMode, treeAvailable]);
+
+  const indexTooLarge = pathIndexResult !== null && !pathIndexResult.ok;
+
+  const searchResults = useMemo(() => {
+    if (pathIndexResult === null || !pathIndexResult.ok) return [];
+    return searchJsonPathIndex(pathIndexResult.index, searchQuery);
+  }, [pathIndexResult, searchQuery]);
+
+  const handleSelectSearchResult = useCallback((path: JsonPath) => {
+    setSelectedPath(path);
+  }, []);
+
+  const handleCopyPath = useCallback(() => {
+    if (selectedPath === null) return;
+    const serialized = serializeJsonPath(selectedPath);
+    void copyText(serialized).then((ok) => {
+      if (ok) toast.success(`Copied ${serialized}`);
+      else toast.error('Could not access the clipboard');
+    });
+  }, [selectedPath]);
+
   const setInput = useCallback(
-    (input: string) => history.set({ ...history.present, input, selectedKeys: new Set() }),
+    (input: string) => {
+      history.set({ ...history.present, input, selectedKeys: new Set() });
+      // A selection/search from the previous document has no meaning for a new one.
+      setSelectedPath(null);
+      setSearchQuery('');
+    },
     [history],
   );
 
@@ -229,9 +282,10 @@ export function JSONTab() {
   }, [present.input, outputText, setDiffPreset, setActiveTab]);
 
   const handleFileDrop = useCallback(
-    (content: string, fileName: string) => {
-      setInput(content);
-      toast.success(`Opened ${fileName}`);
+    (payload: FileDropPayload) => {
+      if (payload.kind !== 'text') return;
+      setInput(payload.content);
+      toast.success(`Opened ${payload.fileName}`);
     },
     [setInput],
   );
@@ -270,8 +324,11 @@ export function JSONTab() {
       { id: 'json:copy', label: 'Copy output', category: 'context' as const, icon: Copy, run: handleCopy },
       { id: 'json:compare', label: 'Compare input vs output', category: 'context' as const, icon: GitCompare, run: handleCompare },
       { id: 'json:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
+      ...(selectedPath !== null
+        ? [{ id: 'json:copy-path', label: 'Copy selected node’s path', category: 'context' as const, icon: Route, run: handleCopyPath }]
+        : []),
     ],
-    [handleFormat, handleMinify, handleCopy, handleCompare, shareLink],
+    [handleFormat, handleMinify, handleCopy, handleCompare, shareLink, selectedPath, handleCopyPath],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -330,7 +387,7 @@ export function JSONTab() {
           title="Result"
           actions={
             <>
-              <div className="flex overflow-hidden rounded border border-line" role="group" aria-label="View mode">
+              <div className="flex shrink-0 overflow-hidden rounded border border-line" role="group" aria-label="View mode">
                 <button
                   type="button"
                   onClick={() => {
@@ -357,6 +414,14 @@ export function JSONTab() {
               </div>
               {viewMode === 'tree' && treeAvailable && (
                 <ToolButton onClick={toggleExpandAll}>{allExpanded ? 'Collapse' : 'Expand'}</ToolButton>
+              )}
+              {viewMode === 'tree' && treeAvailable && (
+                <IconButton
+                  icon={Route}
+                  label="Copy selected node's path"
+                  onClick={handleCopyPath}
+                  disabled={selectedPath === null}
+                />
               )}
               <IconButton icon={GitCompare} label="Compare input vs output" onClick={handleCompare} />
               <ToolButton icon={Copy} onClick={handleCopy} disabled={outputText === ''}>
@@ -390,9 +455,68 @@ export function JSONTab() {
           </div>
         )}
 
+        {viewMode === 'tree' && treeAvailable && (
+          <div className="shrink-0 border-b border-line bg-surface px-3 py-1.5">
+            <div className="flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden="true" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={indexTooLarge ? 'Search unavailable — document too large to index' : 'Search keys and values…'}
+                aria-label="Search JSON keys and values"
+                spellCheck={false}
+                disabled={indexTooLarge}
+                className="min-w-0 flex-1 bg-transparent text-xs text-fg outline-none placeholder:text-fg-subtle disabled:cursor-not-allowed"
+              />
+              {searchQuery.trim() !== '' && !indexTooLarge && (
+                <span className="shrink-0 text-[11px] text-fg-subtle">
+                  {searchResults.length} match{searchResults.length === 1 ? '' : 'es'}
+                </span>
+              )}
+            </div>
+            {indexTooLarge && (
+              <p className="mt-1 text-[11px] text-warning">
+                This document has too many nodes to index for search (over{' '}
+                {LIMITS.RENDER.JSON_PATH_INDEX_NODES.toLocaleString()}). Tree browsing and clicking a node to copy
+                its path still work — only search is affected.
+              </p>
+            )}
+            {searchQuery.trim() !== '' && searchResults.length > 0 && (
+              <div className="mt-1.5 max-h-28 overflow-auto dx-scrollbar">
+                {searchResults.slice(0, 100).map(({ node, matchedOn }) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    onClick={() => handleSelectSearchResult(node.path)}
+                    className={`block w-full truncate rounded px-1.5 py-0.5 text-left font-mono text-[11px] ${
+                      node.id === selectedId ? 'bg-accent-soft text-fg' : 'text-fg-muted hover:bg-surface-raised hover:text-fg'
+                    }`}
+                    title={`Matched on ${matchedOn}`}
+                  >
+                    {node.id}
+                  </button>
+                ))}
+                {searchResults.length > 100 && (
+                  <p className="px-1.5 py-0.5 text-[11px] text-fg-subtle">
+                    Showing the first 100 of {searchResults.length} matches.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <PaneBody>
           {viewMode === 'tree' && treeAvailable && filtered !== null ? (
-            <JsonTreeView value={filtered} expandVersion={expandVersion} allExpanded={allExpanded} />
+            <JsonTreeView
+              value={filtered}
+              expandVersion={expandVersion}
+              allExpanded={allExpanded}
+              selectedId={selectedId}
+              onSelectNode={setSelectedPath}
+              highlightPath={selectedPath}
+            />
           ) : (
             <CodeEditor value={outputText} readOnly language="json" ariaLabel="JSON result" />
           )}

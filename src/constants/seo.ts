@@ -54,6 +54,7 @@ export const SLUG_BY_TAB: Readonly<Record<string, string>> = {
   markdown: 'markdown',
   mapper: 'mapper',
   history: 'history',
+  image: 'image',
 };
 /**
  * Retired slugs that must keep resolving.
@@ -96,7 +97,7 @@ export const CONTENT_PAGE_IDS: readonly ContentPageId[] = [
 export const HOME_SEO: SeoEntry = {
   title: 'Dev X-Ray — Developer Tools That Run in Your Browser',
   description:
-    'Format, decode, convert and inspect developer data in your browser. 23 tools, no account, no backend, and no upload of the data you are working on. Works offline once loaded.',
+    'Format, decode, convert and inspect developer data in your browser. 24 tools, no account, no backend, and no upload of the data you are working on. Works offline once loaded.',
 };
 
 export const TOOL_SEO: Readonly<Record<string, SeoEntry>> = {
@@ -215,6 +216,11 @@ export const TOOL_SEO: Readonly<Record<string, SeoEntry>> = {
     description:
       'Browse, search and restore past operations from twelve Dev X-Ray tools. History is kept in your own browser storage and never leaves it. JWT tokens are deliberately excluded.',
   },
+  image: {
+    title: 'Image Resizer & Converter — JPEG, PNG, WebP',
+    description:
+      'Resize and re-encode images to JPEG, PNG or WebP in your browser. Adjust dimensions with an aspect-ratio lock and quality slider, then download — the file never leaves your machine.',
+  },
 };
 export const PAGE_SEO: Readonly<Record<ContentPageId, SeoEntry>> = {
   why: {
@@ -294,7 +300,7 @@ export const PRERENDER_SHELLS: Readonly<Record<string, RouteShell>> = {
   '/': {
     h1: 'Dev X-Ray',
     lede: [
-      'Dev X-Ray is a collection of 23 developer tools that run entirely in your browser — formatters, decoders, converters and inspectors for the data you deal with every day.',
+      'Dev X-Ray is a collection of 24 developer tools that run entirely in your browser — formatters, decoders, converters and inspectors for the data you deal with every day.',
       'There is no account and no backend. The text you paste is processed on your own machine and is not uploaded anywhere, and the whole toolkit keeps working offline once it has loaded.',
     ],
   },

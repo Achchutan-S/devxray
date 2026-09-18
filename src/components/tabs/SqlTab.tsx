@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Eraser, FileCode2, Link2, Minimize2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CodeEditor, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useDebounce,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -67,9 +74,10 @@ export function SqlTab() {
     });
   }, [output]);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
-    setInput(content);
-    toast.success(`Opened ${fileName}`);
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    setInput(payload.content);
+    toast.success(`Opened ${payload.fileName}`);
   }, []);
   useFileDropCallback(TAB_ID, handleFileDrop);
 

@@ -5,7 +5,7 @@ import { isFileDrag, isTabDrag } from '@/constants/dragTypes';
 import { useUIStore } from '@/store';
 import { triggerFileDropForTab } from '@/hooks';
 import { CONFIG, LIMITS } from '@/utils/constants';
-import { resolveTargetTab } from '@/utils/fileRouting';
+import { isBinaryExtension, resolveTargetTab } from '@/utils/fileRouting';
 
 /** Files larger than this are refused outright rather than freezing the tab. */
 const MAX_DROP_BYTES = LIMITS.FILE.MAX_DROP_BYTES;
@@ -65,6 +65,14 @@ export function FileDropzone({ children }: FileDropzoneProps) {
         return;
       }
 
+      // Binary targets (currently just images) get the raw File — running it
+      // through TextDecoder first would mangle the bytes beyond recovery.
+      if (isBinaryExtension(file.name)) {
+        if (target !== activeTabRef.current) setActiveTab(target);
+        triggerFileDropForTab(target, { kind: 'binary', file, fileName: file.name });
+        return;
+      }
+
       const showProgress = file.size > CONFIG.LARGE_FILE_THRESHOLD;
       if (showProgress) setProgress(0);
 
@@ -78,7 +86,7 @@ export function FileDropzone({ children }: FileDropzoneProps) {
         // useFileDropCallback already shows its own — often more specific
         // ("Inferred 3 fields from x.json", "Loaded x.json into Response
         // JSON") — and firing both stacked two toasts for one drop.
-        triggerFileDropForTab(target, content, file.name);
+        triggerFileDropForTab(target, { kind: 'text', content, fileName: file.name });
       } catch {
         // The failure is reported to the user; the file's contents are never logged.
         toast.error(`Could not read “${file.name}”`);

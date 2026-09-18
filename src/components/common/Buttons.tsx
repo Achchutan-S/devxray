@@ -28,7 +28,10 @@ export function ToolButton({
     <button
       type="button"
       className={cn(
-        'inline-flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm font-medium',
+        // shrink-0: inside a shrinking/scrolling toolbar row (PaneHeader's
+        // actions), this button keeps its full size and the row scrolls
+        // instead — a squeezed-narrower button just looks broken.
+        'inline-flex shrink-0 items-center gap-1.5 rounded border px-2.5 py-1.5 text-sm font-medium',
         'disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
         className,
@@ -61,7 +64,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded border',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border',
         'disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
         className,
@@ -103,7 +106,7 @@ export function IconLink({
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        'inline-flex h-8 w-8 items-center justify-center rounded border',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border',
         VARIANTS[variant],
         className,
       )}

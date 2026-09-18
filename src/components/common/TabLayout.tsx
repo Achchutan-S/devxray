@@ -221,7 +221,13 @@ export function Pane({ children, bordered = false, className }: PaneProps) {
   return (
     <div
       className={cn(
-        'flex flex-col min-w-0 min-h-0 flex-1',
+        // `overflow-hidden` is the pane's own containment boundary: a child that
+        // doesn't fit (a toolbar that can't shrink, a fixed-width control) is
+        // clipped here instead of visually bleeding into the splitter or the
+        // sibling pane. Anything that legitimately needs to scroll gets its own
+        // explicit `overflow-auto`/`overflow-x-auto` further down (PaneBody, a
+        // table wrapper, ...) — this is the backstop, not the scroll mechanism.
+        'flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden',
         bordered && 'border-b border-line md:border-b-0 md:border-r',
         className,
       )}
@@ -249,7 +255,14 @@ export function PaneHeader({ title, actions, className }: PaneHeaderProps) {
       <div className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-[0.13em] text-fg-muted">
         {title}
       </div>
-      {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+      {actions ? (
+        // `shrink` (not `shrink-0`): at a narrow pane width a wide action group
+        // (several icon/tool buttons) no longer forces the header wider than
+        // the pane — it scrolls horizontally in its own lane instead. The
+        // buttons themselves stay `shrink-0` (see Buttons.tsx) so they scroll
+        // into view at full size rather than being squeezed thinner.
+        <div className="flex min-w-0 shrink items-center gap-1 overflow-x-auto dx-scrollbar">{actions}</div>
+      ) : null}
     </div>
   );
 }

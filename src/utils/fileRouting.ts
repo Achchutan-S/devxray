@@ -19,14 +19,31 @@ const EXTENSION_TO_TABS: Readonly<Record<string, readonly string[]>> = {
   yml: ['yaml'],
   yaml: ['yaml'],
   sql: ['sql'],
+  png: ['image'],
+  jpg: ['image'],
+  jpeg: ['image'],
+  webp: ['image'],
+  avif: ['image'],
+  gif: ['image'],
 };
+
+/** Extensions read as a raw `File` and handed to their tool undecoded, rather than through `TextDecoder`. */
+const BINARY_EXTENSIONS: ReadonlySet<string> = new Set(['png', 'jpg', 'jpeg', 'webp', 'avif', 'gif']);
 
 export const DROPPABLE_EXTENSIONS: readonly string[] = Object.keys(EXTENSION_TO_TABS);
 
-export function resolveTargetTab(fileName: string, activeTab: string): string | null {
+/** A name with no dot has no extension — `foo` must not resolve as `foo`. */
+function extensionOf(fileName: string): string {
   const parts = fileName.split('.');
-  // A name with no dot has no extension — `foo` must not resolve as `foo`.
-  const extension = parts.length > 1 ? (parts.pop() ?? '').toLowerCase() : '';
+  return parts.length > 1 ? (parts.pop() ?? '').toLowerCase() : '';
+}
+
+export function isBinaryExtension(fileName: string): boolean {
+  return BINARY_EXTENSIONS.has(extensionOf(fileName));
+}
+
+export function resolveTargetTab(fileName: string, activeTab: string): string | null {
+  const extension = extensionOf(fileName);
 
   const candidates = EXTENSION_TO_TABS[extension];
   if (!candidates || candidates.length === 0) return null;

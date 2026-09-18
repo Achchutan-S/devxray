@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Eraser, FileCode2, Link2, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CodeEditor, FieldSelector, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  useUndoRedo,
+  type FileDropPayload,
+} from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import {
@@ -132,9 +139,10 @@ export function XMLTab() {
   }, [output]);
 
   const handleFileDrop = useCallback(
-    (content: string, fileName: string) => {
-      setInput(content);
-      toast.success(`Opened ${fileName}`);
+    (payload: FileDropPayload) => {
+      if (payload.kind !== 'text') return;
+      setInput(payload.content);
+      toast.success(`Opened ${payload.fileName}`);
     },
     [setInput],
   );

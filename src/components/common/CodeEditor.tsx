@@ -110,12 +110,12 @@ export function CodeEditor({
     <div
       className={cn(
         flush
-          ? 'flex flex-col min-h-0 flex-1 overflow-hidden'
+          ? 'flex flex-col min-w-0 min-h-0 flex-1 overflow-hidden'
           : 'overflow-hidden rounded border border-line',
         className,
       )}
     >
-      <div className={cn(flush ? 'flex-1 min-h-0 overflow-hidden' : 'overflow-hidden')}>
+      <div className={cn(flush ? 'min-w-0 flex-1 min-h-0 overflow-hidden' : 'overflow-hidden')}>
         <Editor
           value={value}
           language={language}

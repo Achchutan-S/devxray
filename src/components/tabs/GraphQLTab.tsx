@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Download, Eraser, Link2, Minimize2, Redo2, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CodeEditor, FieldSelector, IconButton, InlineError, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys, useUndoRedo } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  useUndoRedo,
+  type FileDropPayload,
+} from '@/hooks';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG, LIMITS } from '@/utils/constants';
 import { formatBytes } from '@/utils/resourceGuard';
@@ -244,9 +251,10 @@ export function GraphQLTab() {
   );
 
   const handleFileDrop = useCallback(
-    (content: string, fileName: string) => {
-      acceptSource(content);
-      toast.success(`Opened ${fileName}`);
+    (payload: FileDropPayload) => {
+      if (payload.kind !== 'text') return;
+      acceptSource(payload.content);
+      toast.success(`Opened ${payload.fileName}`);
     },
     [acceptSource],
   );

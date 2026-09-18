@@ -13,7 +13,13 @@ import {
   TabShell,
   ToolButton,
 } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useShareAction, useTabHotkeys } from '@/hooks';
+import {
+  useCommandPaletteCommands,
+  useFileDropCallback,
+  useShareAction,
+  useTabHotkeys,
+  type FileDropPayload,
+} from '@/hooks';
 import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { consumeSharedState } from '@/utils/shareState';
@@ -92,7 +98,9 @@ export function MockDataTab() {
     setError(null);
   }, []);
 
-  const handleFileDrop = useCallback((content: string, fileName: string) => {
+  const handleFileDrop = useCallback((payload: FileDropPayload) => {
+    if (payload.kind !== 'text') return;
+    const { content, fileName } = payload;
     try {
       const parsed: unknown = JSON.parse(content);
       const inferred = inferSchemaFromJson(parsed);
