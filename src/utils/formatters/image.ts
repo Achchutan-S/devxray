@@ -65,3 +65,18 @@ export function percentChange(before: number, after: number): number {
   if (before === 0) return 0;
   return Math.round(((after - before) / before) * 100);
 }
+
+export type EncodePath = 'offscreen' | 'canvas' | 'none';
+
+/**
+ * Picks which browser API resizes/re-encodes the image, preferring the
+ * promise-based `OffscreenCanvas.convertToBlob` and falling back to the far
+ * more widely (and long-)supported callback-based `canvas.toBlob` when it
+ * isn't available. `'none'` means neither exists — the component must not
+ * attempt an encode at all and should say so, rather than fail silently.
+ */
+export function chooseEncodePath(hasOffscreenConvertToBlob: boolean, hasCanvasToBlob: boolean): EncodePath {
+  if (hasOffscreenConvertToBlob) return 'offscreen';
+  if (hasCanvasToBlob) return 'canvas';
+  return 'none';
+}

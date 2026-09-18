@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  chooseEncodePath,
   decodedPixelCount,
   exceedsPixelLimit,
   formatSupportsQuality,
@@ -82,5 +83,20 @@ describe('percentChange', () => {
     expect(percentChange(1000, 500)).toBe(-50);
     expect(percentChange(1000, 1500)).toBe(50);
     expect(percentChange(0, 500)).toBe(0);
+  });
+});
+
+describe('chooseEncodePath', () => {
+  it('prefers OffscreenCanvas.convertToBlob when available', () => {
+    expect(chooseEncodePath(true, true)).toBe('offscreen');
+    expect(chooseEncodePath(true, false)).toBe('offscreen');
+  });
+
+  it('falls back to canvas.toBlob when only that is available', () => {
+    expect(chooseEncodePath(false, true)).toBe('canvas');
+  });
+
+  it('reports no support when neither is available', () => {
+    expect(chooseEncodePath(false, false)).toBe('none');
   });
 });
