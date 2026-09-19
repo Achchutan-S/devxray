@@ -164,11 +164,18 @@ export function GraphQLTab() {
       toast.error('Nothing to format');
       return;
     }
+    // Same guard the debounced auto-analyze effect above uses: if the user
+    // keeps typing before this resolves, a stale result must not overwrite
+    // their newer edits (or, symmetrically, get treated as this click's own
+    // outcome once a newer edit has already superseded it).
+    const id = runId.current + 1;
+    runId.current = id;
     void formatGraphQL(present.input, {
       maxInputBytes: LIMITS.INPUT.GRAPHQL,
       fallback: 'print',
     })
       .then((result) => {
+        if (runId.current !== id) return;
         history.set({ ...present, input: result.formatted });
         setUsedFallbackPrinter(result.formatter === 'graphql-print');
         toast.success(
@@ -178,6 +185,7 @@ export function GraphQLTab() {
         );
       })
       .catch((caught: unknown) => {
+        if (runId.current !== id) return;
         toast.error(caught instanceof Error ? caught.message : 'Invalid GraphQL');
       });
   }, [history, present]);

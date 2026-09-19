@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { IconButton, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, TabShell, ToolButton } from '@/components/common';
-import { useCommandPaletteCommands, useFileDropCallback, useTabHotkeys, type FileDropPayload } from '@/hooks';
+import { useCommandPaletteCommands, useDebounce, useFileDropCallback, useTabHotkeys, type FileDropPayload } from '@/hooks';
 import { useHistoryStore, useMapperStore, type MapperInputKey } from '@/store';
 import { copyText } from '@/utils/clipboard';
-import { flattenGraphQLSelections, flattenPaths, type FlatField } from '@/utils/mapper/flattenPaths';
+import { CONFIG } from '@/utils/constants';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
+import { flattenPaths, parseGraphqlField, parseJsonField, type FlatField } from '@/utils/mapper/flattenPaths';
 import {
   MapperImportError,
   exportMappingJson,
@@ -70,30 +72,6 @@ const SOURCE_INPUTS: readonly SourceInputDef[] = [
   { key: 'cartJson', label: 'Cart JSON', kind: 'cart', language: 'json' },
 ];
 
-interface ParsedField {
-  fields: FlatField[];
-  error: string | null;
-}
-
-function parseJsonField(text: string): ParsedField {
-  if (text.trim() === '') return { fields: [], error: null };
-  try {
-    const value: unknown = JSON.parse(text);
-    return { fields: flattenPaths(value), error: null };
-  } catch (caught) {
-    return { fields: [], error: caught instanceof Error ? caught.message : 'Invalid JSON' };
-  }
-}
-
-function parseGraphqlField(text: string): ParsedField {
-  if (text.trim() === '') return { fields: [], error: null };
-  try {
-    return { fields: flattenGraphQLSelections(text), error: null };
-  } catch (caught) {
-    return { fields: [], error: caught instanceof Error ? caught.message : 'Invalid GraphQL' };
-  }
-}
-
 export function MapperTab() {
   const responseJson = useMapperStore((s) => s.responseJson);
   const requestJson = useMapperStore((s) => s.requestJson);
@@ -124,11 +102,21 @@ export function MapperTab() {
     targetJson,
   };
 
+  // Parsing (JSON.parse + flattenPaths) runs on the debounced value, same
+  // convention as every sibling tool (CronTab, HashTab, YamlTab, ...) — the
+  // textarea itself stays instant since it's still bound to the raw store
+  // value above; only the expensive re-derivation lags by PARSE_DEBOUNCE.
+  const debouncedResponseJson = useDebounce(responseJson, CONFIG.PARSE_DEBOUNCE);
+  const debouncedRequestJson = useDebounce(requestJson, CONFIG.PARSE_DEBOUNCE);
+  const debouncedRequestGraphql = useDebounce(requestGraphql, CONFIG.PARSE_DEBOUNCE);
+  const debouncedCartJson = useDebounce(cartJson, CONFIG.PARSE_DEBOUNCE);
+  const debouncedTargetJson = useDebounce(targetJson, CONFIG.PARSE_DEBOUNCE);
+
   const parsedSources = useMemo(() => {
-    const responseParsed = parseJsonField(responseJson);
-    const requestJsonParsed = parseJsonField(requestJson);
-    const requestGraphqlParsed = parseGraphqlField(requestGraphql);
-    const cartParsed = parseJsonField(cartJson);
+    const responseParsed = parseJsonField(debouncedResponseJson, 'Response JSON');
+    const requestJsonParsed = parseJsonField(debouncedRequestJson, 'Request JSON');
+    const requestGraphqlParsed = parseGraphqlField(debouncedRequestGraphql, 'Request GraphQL');
+    const cartParsed = parseJsonField(debouncedCartJson, 'Cart JSON');
 
     const sources: SourceField[] = [
       ...responseParsed.fields.map((f) => ({ ...f, source: 'response' as SourceKind })),
@@ -146,17 +134,18 @@ export function MapperTab() {
         cartJson: cartParsed.error,
       } as Record<MapperInputKey, string | null>,
     };
-  }, [responseJson, requestJson, requestGraphql, cartJson]);
+  }, [debouncedResponseJson, debouncedRequestJson, debouncedRequestGraphql, debouncedCartJson]);
 
   const targetParsed = useMemo(() => {
-    if (targetJson.trim() === '') return { value: null as unknown, fields: [] as FlatField[], error: null as string | null };
+    if (debouncedTargetJson.trim() === '') return { value: null as unknown, fields: [] as FlatField[], error: null as string | null };
     try {
-      const value: unknown = JSON.parse(targetJson);
+      assertInputWithinLimit(debouncedTargetJson, 'JSON', 'Target contract JSON');
+      const value: unknown = JSON.parse(debouncedTargetJson);
       return { value, fields: flattenPaths(value), error: null };
     } catch (caught) {
       return { value: null, fields: [], error: caught instanceof Error ? caught.message : 'Invalid JSON' };
     }
-  }, [targetJson]);
+  }, [debouncedTargetJson]);
 
   const groupedSourceOptions = useMemo(() => {
     const groups: Record<SourceKind, SourceField[]> = { response: [], request: [], cart: [] };

@@ -130,6 +130,25 @@ service. See `/technology` for the per-package breakdown. Notable for privacy:
 Workers receive user data via `postMessage`. That is same-process browser IPC,
 not network I/O.
 
+## 6b. Image processing
+
+- Resize and format conversion run entirely through the Canvas API on the
+  main thread: the file is decoded, drawn to a canvas at the target
+  dimensions, and re-encoded. The file is never uploaded anywhere.
+- Re-encoding strips EXIF metadata, including GPS coordinates, because the
+  Canvas API does not carry it through a draw/re-encode cycle. The
+  downloaded file carries no metadata about where or when the original
+  photo was taken.
+- The same re-encode step drops the ICC color profile, which can shift
+  colors slightly on wide-gamut (e.g. Display P3) source images.
+- This is a side effect of how canvas re-encoding works, not a dedicated,
+  toggleable privacy feature — it cannot be turned off, and it also cannot
+  be skipped to preserve metadata on request.
+- Decode-size ceilings (`LIMITS.INPUT.IMAGE`, `src/utils/constants.ts`) are a
+  separate, resource-safety concern, not a privacy one: PNG/JPEG/GIF/WebP
+  are checked from the file header before decode, and AVIF falls back to a
+  weaker post-decode check.
+
 ## 7. JWT security decisions
 
 1. **Decoding ≠ verification.** Decoding is base64url + JSON and proves nothing.

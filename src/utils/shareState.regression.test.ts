@@ -57,24 +57,22 @@ const SHARE_TOOLS: Readonly<Record<string, unknown>> = {
 const NOT_SHAREABLE = ['mapper', 'history', 'image'] as const;
 
 describe('share link format is unchanged', () => {
-  it('still encodes as #/{tab}/{lz-compressed payload}', () => {
-    const hash = encodeShareHash({ tab: 'jwt', data: { token: 'abc' } });
-    expect(hash).toMatch(/^#\/jwt\//);
-    const encoded = hash.slice('#/jwt/'.length);
-    expect(LZString.decompressFromEncodedURIComponent(encoded)).toBe('{"token":"abc"}');
+  it('still round-trips through lz-string when the legacy shape is used directly', async () => {
+    const encoded = LZString.compressToEncodedURIComponent('{"token":"abc"}');
+    expect(await decodeShareHash(`#/jwt/${encoded}`)).toEqual({ tab: 'jwt', data: { token: 'abc' } });
   });
 
-  it('round-trips every share-enabled tool payload', () => {
+  it('round-trips every share-enabled tool payload', async () => {
     for (const [tab, data] of Object.entries(SHARE_TOOLS)) {
-      const decoded = decodeShareHash(encodeShareHash({ tab, data }));
+      const decoded = await decodeShareHash(await encodeShareHash({ tab, data }));
       expect(decoded, `round trip failed for ${tab}`).toEqual({ tab, data });
     }
   });
 
-  it('still decodes links produced before this change', () => {
+  it('still decodes links produced before this change (legacy lz-string, unmarked)', async () => {
     // Captured from a build predating the share/command-palette refactor.
     const legacy = '#/cron/N4IglgdgDgrgLiAXCADAAgJxoFQ7QRgFoBWEAXyA';
-    expect(decodeShareHash(legacy)).toEqual({ tab: 'cron', data: { input: '0 9 * * 1-5' } });
+    expect(await decodeShareHash(legacy)).toEqual({ tab: 'cron', data: { input: '0 9 * * 1-5' } });
   });
 });
 
@@ -131,10 +129,10 @@ describe('share coverage', () => {
 });
 
 describe('JWT share/history boundary is unchanged', () => {
-  it('shares only the token, never the secret', () => {
-    const decoded = decodeShareHash(
-      encodeShareHash({ tab: 'jwt', data: SHARE_TOOLS['jwt'] }),
-    ) as { data: Record<string, unknown> };
+  it('shares only the token, never the secret', async () => {
+    const decoded = (await decodeShareHash(
+      await encodeShareHash({ tab: 'jwt', data: SHARE_TOOLS['jwt'] }),
+    )) as { data: Record<string, unknown> };
     expect(Object.keys(decoded.data)).toEqual(['token']);
     expect(decoded.data).not.toHaveProperty('secret');
   });

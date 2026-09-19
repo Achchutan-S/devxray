@@ -11,6 +11,7 @@ import {
 } from '@/hooks';
 import { LIMITS } from '@/utils/constants';
 import { formatBytes } from '@/utils/resourceGuard';
+import { readImageDimensionsFromHeader } from '@/utils/imageHeaderDimensions';
 import {
   IMAGE_FORMATS,
   IMAGE_FORMAT_MIME,
@@ -29,6 +30,14 @@ import {
 const TAB_ID = 'image';
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/webp,image/avif,image/gif';
+
+/**
+ * How much of the file is read for the header-based dimension check. Generous
+ * for JPEG's marker walk (real EXIF/ICC/XMP segments can run tens of KB
+ * before the SOF marker) while staying utterly cheap relative to the 25MB
+ * drop limit — this is a bounded prefix read, never the whole file.
+ */
+const HEADER_PREFIX_BYTES = 256 * 1024;
 
 interface EncodeParams {
   width: number;
@@ -81,6 +90,25 @@ export function ImageTab() {
   const loadFile = useCallback(async (picked: File) => {
     if (picked.size > LIMITS.FILE.MAX_DROP_BYTES) {
       toast.error(`“${picked.name}” is ${formatBytes(picked.size)} — the limit is ${formatBytes(LIMITS.FILE.MAX_DROP_BYTES)}.`);
+      return;
+    }
+
+    // Reject an oversized image from its header alone, before ever decoding
+    // it: createImageBitmap fully decodes into memory before its own
+    // dimensions are knowable, so checking the ceiling only after that decode
+    // is too late for a small, highly-compressed file at extreme pixel
+    // dimensions. PNG/JPEG/GIF/WebP headers all carry dimensions cheaply;
+    // AVIF's ISOBMFF container doesn't have a fixed offset to read them from
+    // and falls through to the decode-then-check below, same as before this
+    // existed — see imageHeaderDimensions.ts for exactly what's covered.
+    const headerBytes = new Uint8Array(await picked.slice(0, HEADER_PREFIX_BYTES).arrayBuffer());
+    const headerDims = readImageDimensionsFromHeader(headerBytes);
+    if (headerDims && exceedsPixelLimit(headerDims, LIMITS.INPUT.IMAGE)) {
+      const mp = (decodedPixelCount(headerDims) / 1_000_000).toFixed(1);
+      const limitMp = Math.round(LIMITS.INPUT.IMAGE / 1_000_000);
+      toast.error(
+        `“${picked.name}” is ${headerDims.width}×${headerDims.height} (${mp} MP) — over the ${limitMp} MP limit this tool can safely resize on the main thread.`,
+      );
       return;
     }
 

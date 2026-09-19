@@ -190,6 +190,7 @@ export function SecurityPage({ onNavigate, onBack }: Props) {
           <li>Files are streamed into memory and routed to the tool that handles that extension.</li>
           <li>Files larger than 25 MB are refused outright rather than freezing the tab.</li>
           <li>Only the first file of a multi-file drop is processed; each tool takes one document.</li>
+          <li>Images re-encoded through the Image tool have their EXIF metadata — including GPS location — and ICC color profile stripped as a side effect of the re-encode; this is not an optional setting.</li>
         </ul>
       </Section>
 

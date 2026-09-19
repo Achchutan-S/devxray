@@ -133,6 +133,16 @@ export function buildJsonPathIndex(
   return { ok: true, index: { nodesById, order, rootId: serializeJsonPath(ROOT_PATH) } };
 }
 
+/**
+ * True when `selectedId` no longer resolves inside `index` — the signal a UI
+ * should clear a stale selection after the visible node set changes (e.g. a
+ * key filter that now excludes the previously-selected node). `null` is never
+ * stale — there is nothing to clear.
+ */
+export function isSelectionStale(index: JsonPathIndex, selectedId: string | null): boolean {
+  return selectedId !== null && !index.nodesById.has(selectedId);
+}
+
 /** Type guard: narrows to the container branch (has `childCount`, not `value`). */
 export function isContainerNode(
   node: JsonPathNode,

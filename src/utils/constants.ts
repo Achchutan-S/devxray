@@ -101,6 +101,18 @@ export const LIMITS = {
      * before the draw call itself becomes the freeze. Not independently
      * profiled in this environment — no browser available here to measure —
      * so treat this as a reasoned ceiling to revisit against real devices.
+     *
+     * Enforcement is two-layered, and the two layers cover different formats:
+     * for PNG/JPEG/GIF/WebP, `ImageTab.tsx` reads dimensions straight from the
+     * file's header (see `utils/imageHeaderDimensions.ts`) and rejects before
+     * ever calling `createImageBitmap` — the actual decode, and the memory
+     * spike it would cause, never happens. AVIF's container format has no
+     * fixed offset to read dimensions from without a real box parser, so it
+     * relies solely on the second layer: the post-decode check against the
+     * already-decoded bitmap. For AVIF specifically, this ceiling protects
+     * against *proceeding* with an oversized image, not against the decode
+     * allocation itself — say so plainly rather than implying a guarantee
+     * this doesn't yet provide for that one format.
      */
     IMAGE: 40_000_000,
   },
@@ -132,6 +144,21 @@ export const LIMITS = {
      * here to measure — so treat this as a reasoned ceiling, not a benchmark.
      */
     JSON_PATH_INDEX_NODES: 50_000,
+    /**
+     * Ceiling on how many nodes the JSON Graph view will lay out and render.
+     * Deliberately far stricter than JSON_PATH_INDEX_NODES: the index is a
+     * plain object per node, but a graph node is a real positioned DOM element
+     * with its own layout/paint cost, and — unlike the Tree, which only ever
+     * renders the currently-expanded rows — Graph draws the whole structure at
+     * once with nothing collapsed. JSON_TREE_CHILDREN (200) is this codebase's
+     * existing reference point for "how much of a JSON structure is sane to
+     * put on screen as individual elements at once"; this is set to a similar
+     * order of magnitude, a little higher because a graph card is smaller and
+     * simpler than a full tree row. Not independently profiled in this
+     * environment — no browser available here to measure — so treat this as a
+     * reasoned ceiling, not a benchmark.
+     */
+    JSON_GRAPH_NODES: 300,
   },
 
   /** ---- File intake. Checked against `File.size` before a byte is read. ---- */

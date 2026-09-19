@@ -55,6 +55,14 @@ const MATRIX: readonly MatrixRow[] = [
     networkKind: 'none',
   },
   {
+    action: 'Image resize / convert',
+    processing: 'Browser (Canvas)',
+    storage: 'Not persisted',
+    storageKind: 'none',
+    network: 'None',
+    networkKind: 'none',
+  },
+  {
     action: 'History entry',
     processing: 'Browser',
     storage: 'localStorage',
@@ -276,6 +284,16 @@ export function PrivacyPage({ onNavigate, onBack }: Props) {
               { label: 'Network', value: 'None at creation', kind: 'none' },
             ]}
             note="Compression is not encryption. Anyone holding the link holds the data."
+          />
+          <DataLifecycle
+            title="Image resize / convert"
+            stages={[
+              { label: 'Input', value: 'Local file', kind: 'local' },
+              { label: 'Processing', value: 'Browser Canvas', kind: 'local' },
+              { label: 'Storage', value: 'Not persisted', kind: 'none' },
+              { label: 'Network', value: 'None', kind: 'none' },
+            ]}
+            note="Re-encoding strips EXIF metadata — including GPS location — so the downloaded file carries no hidden data about where or when it was taken. It also drops the ICC color profile, so colors may shift slightly on wide-gamut source photos."
           />
         </div>
       </Section>

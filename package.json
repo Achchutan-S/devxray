@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/Achchutan-S/devxray/issues"
   },
-  "description": "Dev X-Ray \u2014 a browser-first developer productivity toolkit. Everything runs locally.",
+  "description": "Dev X-Ray — a browser-first developer productivity toolkit. Everything runs locally.",
   "type": "module",
   "engines": {
     "node": "^18.0.0 || >=20.0.0"
@@ -32,6 +32,7 @@
   "dependencies": {
     "@faker-js/faker": "^10.6.0",
     "@monaco-editor/react": "^4.7.0",
+    "@xyflow/react": "^12.11.6",
     "cronstrue": "^3.24.0",
     "dompurify": "^3.4.14",
     "graphql": "^16.14.2",

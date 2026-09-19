@@ -8,7 +8,7 @@ import { addTabToBar, applyTabOrder, defaultBarTabs, removeTabFromBar } from '@/
 import { applyTheme, DEFAULT_THEME } from '@/utils/theme';
 import { applyMonacoTheme } from '@/utils/monacoThemes';
 
-export type JsonView = 'raw' | 'tree';
+export type JsonView = 'raw' | 'tree' | 'graph';
 
 interface PreferenceState {
   theme: Theme;

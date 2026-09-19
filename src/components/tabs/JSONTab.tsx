@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Redo2, Route, Search, Undo2, Wand2 } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Braces, Copy, Eraser, GitCompare, Link2, ListTree, Minimize2, Network, Redo2, Route, Search, Undo2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { CodeEditor, FieldSelector, IconButton, InlineError, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { CodeEditor, FieldSelector, IconButton, InlineError, JsonTreeView, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabErrorBoundary, TabShell, TabSkeleton, ToolButton } from '@/components/common';
 import {
   useCommandPaletteCommands,
   useFileDropCallback,
@@ -30,8 +30,18 @@ import {
 import type { JsonWorkerRequest, JsonWorkerResponse } from '@/workers/jsonParser.worker';
 import { consumeSharedState } from '@/utils/shareState';
 import { serializeJsonPath, type JsonPath } from '@/utils/jsonPath/path';
-import { buildJsonPathIndex } from '@/utils/jsonPath/traversal';
+import { buildJsonPathIndex, isSelectionStale } from '@/utils/jsonPath/traversal';
 import { searchJsonPathIndex } from '@/utils/jsonPath/search';
+import { buildJsonGraph } from '@/utils/jsonPath/graph';
+
+/**
+ * React Flow (in JsonGraphView.tsx) is never part of this tab's own chunk —
+ * dynamic import only, so opening the JSON tool and staying in Raw/Tree never
+ * fetches or evaluates the graph-rendering library.
+ */
+const JsonGraphView = lazy(() =>
+  import('@/components/common/JsonGraphView').then((m) => ({ default: m.JsonGraphView })),
+);
 
 const TAB_ID = 'json';
 
@@ -202,14 +212,41 @@ export function JSONTab() {
     [selectedPath],
   );
 
-  // Only built when the tree is actually showing (or about to) — search and
-  // copy-path have no reason to cost anything while the user stays in Raw.
+  // Only built when Tree or Graph is actually showing — search, copy-path and
+  // graph have no reason to cost anything while the user stays in Raw.
+  // (`treeAvailable` gates any structural view, not just literally Tree.)
   const pathIndexResult = useMemo(() => {
-    if (filtered === null || viewMode !== 'tree' || !treeAvailable) return null;
+    if (filtered === null || viewMode === 'raw' || !treeAvailable) return null;
     return buildJsonPathIndex(filtered);
   }, [filtered, viewMode, treeAvailable]);
 
   const indexTooLarge = pathIndexResult !== null && !pathIndexResult.ok;
+
+  // Graph is another consumer of the same index — no second traversal. Kept
+  // out of the tree's own render path: rebuilding it depends only on the
+  // index, never on `selectedId`, so selecting a node never re-derives the
+  // graph. Layout depends on JsonGraphView's own collapse state, so it's
+  // computed there, not here.
+  const graphResult = useMemo(() => {
+    if (viewMode !== 'graph' || pathIndexResult === null || !pathIndexResult.ok) return null;
+    return buildJsonGraph(pathIndexResult.index);
+  }, [viewMode, pathIndexResult]);
+
+  const graphTooLarge = indexTooLarge || (graphResult !== null && !graphResult.ok);
+
+  // The key filter (FieldSelector / shallow-deep) changes what `filtered` — and
+  // therefore the index above — contains. A selection made before the filter
+  // narrowed can point at a node that's no longer in it; clear it then, and
+  // only then. This deliberately does NOT depend on `searchQuery`: typing a
+  // search never removes anything from the tree, so it must never clear a
+  // selection. When the index can't be verified (Raw view, or too large to
+  // build) the selection is left alone rather than guessed away.
+  useEffect(() => {
+    if (pathIndexResult === null || !pathIndexResult.ok) return;
+    if (isSelectionStale(pathIndexResult.index, selectedId)) {
+      setSelectedPath(null);
+    }
+  }, [pathIndexResult, selectedId]);
 
   const searchResults = useMemo(() => {
     if (pathIndexResult === null || !pathIndexResult.ok) return [];
@@ -220,14 +257,29 @@ export function JSONTab() {
     setSelectedPath(path);
   }, []);
 
-  const handleCopyPath = useCallback(() => {
-    if (selectedPath === null) return;
-    const serialized = serializeJsonPath(selectedPath);
+  const copyPathToClipboard = useCallback((path: JsonPath) => {
+    const serialized = serializeJsonPath(path);
     void copyText(serialized).then((ok) => {
       if (ok) toast.success(`Copied ${serialized}`);
       else toast.error('Could not access the clipboard');
     });
-  }, [selectedPath]);
+  }, []);
+
+  // Clicking a node — in Tree or Graph — selects it (highlight, Copy Path
+  // enablement) AND copies its path immediately — one click, not
+  // select-then-hunt-for-a-button. Shared by both views: one selection concept.
+  const handleNodeClick = useCallback(
+    (path: JsonPath) => {
+      setSelectedPath(path);
+      copyPathToClipboard(path);
+    },
+    [copyPathToClipboard],
+  );
+
+  const handleCopyPath = useCallback(() => {
+    if (selectedPath === null) return;
+    copyPathToClipboard(selectedPath);
+  }, [selectedPath, copyPathToClipboard]);
 
   const setInput = useCallback(
     (input: string) => {
@@ -404,6 +456,20 @@ export function JSONTab() {
                   type="button"
                   onClick={() => {
                     setRawOverride(false);
+                    setJsonView('graph');
+                  }}
+                  disabled={!treeAvailable}
+                  aria-pressed={viewMode === 'graph'}
+                  aria-label="Graph view"
+                  title="Graph view"
+                  className={`px-2 py-1 text-xs ${viewMode === 'graph' ? 'bg-accent text-accent-on' : 'text-fg-muted hover:text-fg'} disabled:opacity-40`}
+                >
+                  <Network className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRawOverride(false);
                     setJsonView('raw');
                   }}
                   aria-pressed={viewMode === 'raw'}
@@ -415,7 +481,7 @@ export function JSONTab() {
               {viewMode === 'tree' && treeAvailable && (
                 <ToolButton onClick={toggleExpandAll}>{allExpanded ? 'Collapse' : 'Expand'}</ToolButton>
               )}
-              {viewMode === 'tree' && treeAvailable && (
+              {(viewMode === 'tree' || viewMode === 'graph') && treeAvailable && (
                 <IconButton
                   icon={Route}
                   label="Copy selected node's path"
@@ -514,9 +580,24 @@ export function JSONTab() {
               expandVersion={expandVersion}
               allExpanded={allExpanded}
               selectedId={selectedId}
-              onSelectNode={setSelectedPath}
+              onSelectNode={handleNodeClick}
               highlightPath={selectedPath}
             />
+          ) : viewMode === 'graph' && treeAvailable && filtered !== null ? (
+            graphTooLarge ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center">
+                <p className="text-sm text-fg-muted">This JSON document is too large to visualize as a graph.</p>
+                <p className="text-xs text-fg-subtle">Try a smaller document, or use Tree / Raw view.</p>
+              </div>
+            ) : graphResult && graphResult.ok ? (
+              <TabErrorBoundary resetKey={present.input}>
+                <Suspense fallback={<TabSkeleton />}>
+                  <JsonGraphView graph={graphResult.graph} selectedId={selectedId} onSelectNode={handleNodeClick} />
+                </Suspense>
+              </TabErrorBoundary>
+            ) : (
+              <TabSkeleton />
+            )
           ) : (
             <CodeEditor value={outputText} readOnly language="json" ariaLabel="JSON result" />
           )}

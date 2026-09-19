@@ -106,3 +106,30 @@ describe('flattenGraphQLSelections', () => {
     expect(flattenGraphQLSelections('fragment F on User { id }')).toEqual([]);
   });
 });
+
+describe('flattenPaths — stack safety (iterative, not recursive)', () => {
+  it('does not stack-overflow on a deeply nested object well beyond a safe recursion depth', () => {
+    // A JS call stack typically overflows well under 20,000 frames; a naive
+    // recursive `visit()` would throw a RangeError here.
+    const depth = 50_000;
+    let doc: unknown = { value: 'leaf' };
+    for (let i = 0; i < depth; i += 1) doc = { child: doc };
+
+    expect(() => flattenPaths(doc)).not.toThrow();
+    const fields = flattenPaths(doc);
+    expect(fields).toHaveLength(1);
+    expect(fields[0]!.path.endsWith('.value')).toBe(true);
+    expect(fields[0]!.sample).toBe('leaf');
+  });
+
+  it('does not stack-overflow on a deeply nested array', () => {
+    const depth = 50_000;
+    let doc: unknown = 'leaf';
+    for (let i = 0; i < depth; i += 1) doc = [doc];
+
+    expect(() => flattenPaths(doc)).not.toThrow();
+    const fields = flattenPaths(doc);
+    expect(fields).toHaveLength(1);
+    expect(fields[0]!.sample).toBe('leaf');
+  });
+});

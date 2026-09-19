@@ -1,4 +1,5 @@
 import { Kind, parse, type OperationDefinitionNode, type SelectionSetNode } from 'graphql';
+import { assertInputWithinLimit } from '@/utils/resourceGuard';
 
 /**
  * `unknown` covers GraphQL selections, which name a field without describing
@@ -21,12 +22,25 @@ function kindOf(value: unknown): FieldKind {
   return 'unknown';
 }
 
+interface StackEntry {
+  readonly node: unknown;
+  readonly path: string;
+}
+
 /**
  * Flattens a JSON sample into structural field paths using `[]` for array
  * elements (not `[0]`, `[1]`...) — this is a schema shape, not a value dump,
  * so every element of an array folds into the same path. An array whose
  * elements are objects with different keys contributes the union of both
  * shapes; the first value seen at a given path is kept as its `sample`.
+ *
+ * Walks with an explicit stack, not recursion — mirroring
+ * `buildJsonPathIndex`'s traversal (utils/jsonPath/traversal.ts): a
+ * sufficiently deep real-world API response would blow the call stack with a
+ * recursive walk, and this input is pasted by a user with no depth limit of
+ * its own. Children are pushed in reverse so the stack (LIFO) pops them back
+ * in original left-to-right order, preserving the exact output order (and
+ * "first value wins" sample semantics) the previous recursive version had.
  */
 export function flattenPaths(value: unknown, prefix = ''): FlatField[] {
   const out: FlatField[] = [];
@@ -38,35 +52,41 @@ export function flattenPaths(value: unknown, prefix = ''): FlatField[] {
     out.push({ path, kind, sample });
   }
 
-  function visit(node: unknown, path: string): void {
+  const stack: StackEntry[] = [{ node: value, path: prefix }];
+  while (stack.length > 0) {
+    const entry = stack.pop();
+    if (entry === undefined) break;
+    const { node, path } = entry;
     const kind = kindOf(node);
 
     if (kind === 'object') {
       const entries = Object.entries(node as Record<string, unknown>);
       if (entries.length === 0) {
         pushLeaf(path, kind, node);
-        return;
+        continue;
       }
-      for (const [key, child] of entries) {
-        visit(child, path === '' ? key : `${path}.${key}`);
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const [key, child] = entries[i]!;
+        stack.push({ node: child, path: path === '' ? key : `${path}.${key}` });
       }
-      return;
+      continue;
     }
 
     if (kind === 'array') {
       const items = node as unknown[];
       if (items.length === 0) {
         pushLeaf(`${path}[]`, kind, node);
-        return;
+        continue;
       }
-      for (const item of items) visit(item, `${path}[]`);
-      return;
+      for (let i = items.length - 1; i >= 0; i -= 1) {
+        stack.push({ node: items[i], path: `${path}[]` });
+      }
+      continue;
     }
 
     pushLeaf(path, kind, node);
   }
 
-  visit(value, prefix);
   return out;
 }
 
@@ -99,4 +119,39 @@ export function flattenGraphQLSelections(query: string): FlatField[] {
 
   visit(operation.selectionSet, '');
   return out;
+}
+
+export interface ParsedField {
+  readonly fields: FlatField[];
+  readonly error: string | null;
+}
+
+/**
+ * Parses one of Mapper's JSON source fields into flattened paths, guarded the
+ * same way JSONTab/CSVTab/etc. already guard a document of this kind —
+ * `assertInputWithinLimit` reuses `LIMITS.INPUT.JSON`, not a Mapper-specific
+ * number. `InputTooLargeError` extends `Error`, so it surfaces through the
+ * exact same "invalid input" message path callers already had, no new
+ * error-handling branch needed.
+ */
+export function parseJsonField(text: string, what: string): ParsedField {
+  if (text.trim() === '') return { fields: [], error: null };
+  try {
+    assertInputWithinLimit(text, 'JSON', what);
+    const value: unknown = JSON.parse(text);
+    return { fields: flattenPaths(value), error: null };
+  } catch (caught) {
+    return { fields: [], error: caught instanceof Error ? caught.message : 'Invalid JSON' };
+  }
+}
+
+/** Same guard, for the one GraphQL source field, against `LIMITS.INPUT.GRAPHQL`. */
+export function parseGraphqlField(text: string, what: string): ParsedField {
+  if (text.trim() === '') return { fields: [], error: null };
+  try {
+    assertInputWithinLimit(text, 'GRAPHQL', what);
+    return { fields: flattenGraphQLSelections(text), error: null };
+  } catch (caught) {
+    return { fields: [], error: caught instanceof Error ? caught.message : 'Invalid GraphQL' };
+  }
 }

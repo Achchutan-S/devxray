@@ -86,11 +86,11 @@ export default defineConfig({
           // Monaco is shared by most tools, so pin it to one deterministic chunk
           // rather than letting it be duplicated or split across tool chunks.
           if (id.includes('monaco-editor')) return 'monaco';
-          if (
-            id.includes('/react/') ||
-            id.includes('/react-dom/') ||
-            id.includes('/scheduler/')
-          ) {
+          // Anchored to the node_modules package boundary, not a bare substring:
+          // `id.includes('/react/')` also matched `@xyflow/react` (Phase 6) and
+          // `@monaco-editor/react`, silently pulling a lazily-loaded dependency
+          // the size of React itself into this always-eager chunk.
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
             return 'react-vendor';
           }
 

@@ -126,10 +126,10 @@ function TreeNode({
       <button
         ref={containerRef}
         type="button"
-        onClick={() => {
-          setIsOpen((open) => !open);
-          if (interactive) onSelectNode(path);
-        }}
+        // Containers only toggle open/closed here — selecting (and, in the
+        // JSON tool, copying) on every expand/collapse was noisy. A container
+        // can still become selected via search or a leaf click elsewhere.
+        onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
         style={indent}
         className={cn(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { serializeJsonPath } from './path';
-import { buildJsonPathIndex, describeNode, type JsonPathIndex } from './traversal';
+import { buildJsonPathIndex, describeNode, isSelectionStale, type JsonPathIndex } from './traversal';
 
 function okIndex(value: unknown, maxNodes?: number): JsonPathIndex {
   const result = buildJsonPathIndex(value, maxNodes);
@@ -152,5 +152,29 @@ describe('describeNode', () => {
     expect(describeNode(node(index, '$.b'))).toBe('"x"');
     expect(describeNode(node(index, '$.c'))).toBe('null');
     expect(describeNode(node(index, '$'))).toBe('{3}');
+  });
+});
+
+describe('isSelectionStale', () => {
+  it('is false for null — there is nothing to clear', () => {
+    const index = okIndex({ user: { name: 'Alice' } });
+    expect(isSelectionStale(index, null)).toBe(false);
+  });
+
+  it('is false when the selected path still resolves in the index', () => {
+    const index = okIndex({ user: { name: 'Alice' } });
+    expect(isSelectionStale(index, '$.user.name')).toBe(false);
+  });
+
+  it('is true when a filter narrows the document and the selected path no longer resolves', () => {
+    // Simulates the Tree's key filter: the same document, before and after a
+    // key is excluded — reusing buildJsonPathIndex is the actual mechanism
+    // that already decides what's visible, not a second filtering pass.
+    const before = okIndex({ user: { name: 'Alice' }, other: { name: 'Bob' } });
+    const after = okIndex({ other: { name: 'Bob' } });
+    expect(isSelectionStale(before, '$.user.name')).toBe(false);
+    expect(isSelectionStale(after, '$.user.name')).toBe(true);
+    // A selection under a key the filter kept is untouched.
+    expect(isSelectionStale(after, '$.other.name')).toBe(false);
   });
 });
