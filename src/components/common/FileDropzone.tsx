@@ -168,7 +168,7 @@ export function FileDropzone({ children }: FileDropzoneProps) {
               <>
                 <p className="text-base font-semibold text-fg">Drop a file to open it</p>
                 <p className="text-xs text-fg-muted">
-                  .json .graphql .yaml .xml .sql .csv .md .jwt
+                  .json .graphql .yaml .xml .sql .csv .md .jwt .png .jpg .webp .avif .gif
                 </p>
               </>
             ) : (

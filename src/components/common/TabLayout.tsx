@@ -198,10 +198,14 @@ function ResizableTabShell({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        // A cancelled pointer (touch takes over as a pan, capture is lost) sends
+        // no pointerup; without this the drag would stay armed and the splitter
+        // would follow the cursor with no button held.
+        onPointerCancel={handlePointerUp}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
         className={cn(
-          'hidden md:block shrink-0 bg-line hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
+          'hidden md:block shrink-0 touch-none bg-line hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
           isVertical ? 'h-1 w-full cursor-row-resize' : 'w-1 cursor-col-resize',
         )}
       />

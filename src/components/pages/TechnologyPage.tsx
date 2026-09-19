@@ -36,6 +36,12 @@ const GROUPS: readonly { title: string; note?: string; deps: readonly Dep[] }[] 
     ],
   },
   {
+    title: 'Visualisation',
+    deps: [
+      { name: '@xyflow/react', role: 'Draws the JSON Graph view. Loaded only when Graph is opened; layout is computed by the application itself.' },
+    ],
+  },
+  {
     title: 'State',
     deps: [
       { name: 'zustand', role: 'Application state. Four stores; three of them persist to localStorage.' },
@@ -91,10 +97,10 @@ const DEPENDENCY_LICENCES: readonly { licence: string; packages: string }[] = [
   {
     licence: 'MIT',
     packages:
-      'react, react-dom, scheduler, monaco-editor, @monaco-editor/react, @monaco-editor/loader, state-local, zustand, use-sync-external-store, sonner, graphql, prettier, marked, sql-formatter, nearley, cronstrue, @faker-js/faker, uuid, ulid, nanoid, lz-string, loose-envify, js-tokens, randexp, ret, discontinuous-range, commander',
+      'react, react-dom, scheduler, monaco-editor, @monaco-editor/react, @monaco-editor/loader, state-local, zustand, @xyflow/react, @xyflow/system, classcat, use-sync-external-store, sonner, graphql, prettier, marked, sql-formatter, nearley, cronstrue, @faker-js/faker, uuid, ulid, nanoid, lz-string, loose-envify, js-tokens, randexp, ret, discontinuous-range, commander',
   },
-  { licence: 'ISC', packages: 'lucide-react, yaml' },
-  { licence: 'BSD-3-Clause', packages: 'moo' },
+  { licence: 'ISC', packages: 'lucide-react, yaml, d3-color, d3-dispatch, d3-drag, d3-interpolate, d3-selection, d3-timer, d3-transition, d3-zoom' },
+  { licence: 'BSD-3-Clause', packages: 'moo, d3-ease' },
   { licence: 'CC0-1.0 (public domain dedication)', packages: 'railroad-diagrams' },
   { licence: 'MPL-2.0 OR Apache-2.0 (dual)', packages: 'dompurify' },
 ];
@@ -305,9 +311,9 @@ export function TechnologyPage({ onNavigate, onBack }: Props) {
 
       <Section title="Bundle and offline footprint">
         <ul className="space-y-1.5 text-sm text-fg-muted">
-          <li>The application’s own entry chunk is around 133 kB raw (roughly 40 kB gzipped); every tool loads on demand.</li>
-          <li>The editor is by far the largest asset at roughly 3.3 MB raw (about 860 kB gzipped) and is precached so it works offline.</li>
-          <li>The service worker precaches 75 files, about 5.4 MB in total, which is what allows every tool to run with the network off.</li>
+          <li>The application’s own entry chunk is around 139 kB raw (roughly 42 kB gzipped); every tool loads on demand.</li>
+          <li>The editor is by far the largest asset at roughly 3.4 MB raw (about 860 kB gzipped) and is precached so it works offline.</li>
+          <li>The service worker precaches 78 files, about 5.9 MB in total, which is what allows every tool to run with the network off.</li>
         </ul>
       </Section>
     </PageShell>

@@ -33,8 +33,8 @@ import {
 import type { TabCategory, TabDefinition } from '@/types';
 
 /**
- * The 24 tools. This is metadata only — the components behind these ids are
- * wired up per phase in src/components/tabs/index.ts.
+ * The tool registry. This is metadata only — the components behind these ids are
+ * wired up in src/components/tabs/index.ts.
  */
 export const TABS: readonly TabDefinition[] = [
   // Formatters

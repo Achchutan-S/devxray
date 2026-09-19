@@ -2,7 +2,7 @@
  * Build-time static generation.
  *
  * Vite emits a single index.html, which means every route would return the same
- * markup and a crawler would see one generic title for all 31 URLs. This script
+ * markup and a crawler would see one generic title for every URL. This script
  * runs after the build and writes a real HTML file per route, each with its own
  * title, description, canonical URL and Open Graph tags.
  *

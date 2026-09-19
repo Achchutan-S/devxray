@@ -11,7 +11,8 @@ are written from this document, so **if a future change makes something here
 untrue, the public claims become false too**. Treat this file as a contract.
 
 Last verified against the implementation and a real browser network capture on
-2026-09-06.
+2026-09-06, and re-checked against the current production build on 2026-09-19
+(see the end of §4).
 
 ---
 
@@ -55,7 +56,7 @@ Exactly three `localStorage` keys are written. Nothing uses `sessionStorage`,
 
 | Key | Contains | Bounds |
 |---|---|---|
-| `devxray_preferences` | theme, pinned tabs, tab order, last active tool, nav panel state | small; no tool content |
+| `devxray_preferences` | theme, pinned/ordered/open tabs, last active tool, nav panel state, JSON result view (`jsonView`), panel split fractions (`panelSizes`) | small; no tool content |
 | `devxray_history` | entries from 12 tools: `{id, type, timestamp, input, output, truncated}` | 100 entries max; each field clipped to 2,000 chars; 8,000 char total budget |
 | `devxray_mapper_state` | mapper inputs + mapping rows | inputs over 300,000 chars kept in memory only, not persisted |
 
@@ -63,7 +64,7 @@ Additional browser-managed storage that is **not** written by application code
 but must still be disclosed publicly:
 
 - **Cache Storage** — the service worker precaches the application's own files
-  (75 entries, ~5.4 MB). It caches the app, never user input.
+  (78 entries, ~5.9 MB). It caches the app, never user input.
 - **Browser address-bar history** — receives the tool route (`/jwt`), and would
   receive a share fragment if a user navigates to one.
 - **Clipboard** — receives content only on an explicit copy/share action.
@@ -96,6 +97,19 @@ input and checked against every request URL and body.
 Every request was a same-origin `GET` for a static asset. No `POST`, no request
 body, no WebSocket, no third-party origin, in any scenario.
 
+**Re-check on the current build, 2026-09-19.** Headless Chrome driven over the
+DevTools Protocol against `vite preview` of the production build, with the same
+kind of sentinel string planted in JSON input and checked against every request
+URL. Flows: first load; JSON file drop, Raw → Tree → Graph, key/value search,
+copy-path, the graph and index ceilings and the large-file guard; Image drop,
+resize, format change and download; panel resizing; back/forward; theme toggle;
+and a full offline reload with the Image tool, Monaco and the Graph view. Result:
+first load was 24 requests, all same-origin `GET`s; request types were only
+Document, Script, Stylesheet, Manifest and Other; no `Fetch`, `XHR`, `WebSocket`
+or `Ping` request originated from the application; no third-party origin; the
+sentinel appeared in no URL; the only `blob:` requests were the Image tool's own
+preview images. This was a one-off manual capture, not an automated test.
+
 Source-level confirmation:
 
 - The only `fetch(`/`axios` occurrences in `src/` are **string literals inside
@@ -115,7 +129,9 @@ service. See `/technology` for the per-package breakdown. Notable for privacy:
 
 - `dompurify` — sanitises Markdown output before it reaches the DOM.
 - `lz-string` — compresses share state. **Compression, not encryption.**
-- `@faker-js/faker` — generates mock data locally; no remote data source.
+- `@faker-js/faker` — generates mock data locally; no remote data source. Its
+  "Avatar URL" field emits a `cdn.jsdelivr.net` URL *as a string in the generated
+  data*; the application never requests it.
 
 ## 6. Workers
 
@@ -147,7 +163,10 @@ not network I/O.
 - Decode-size ceilings (`LIMITS.INPUT.IMAGE`, `src/utils/constants.ts`) are a
   separate, resource-safety concern, not a privacy one: PNG/JPEG/GIF/WebP
   are checked from the file header before decode, and AVIF falls back to a
-  weaker post-decode check.
+  weaker post-decode check. The same ceiling bounds the *resized output*
+  dimensions, so a typed width cannot request an enormous canvas.
+- JPEG has no alpha channel, so transparent pixels are flattened onto white
+  before encoding; PNG and WebP keep their transparency.
 
 ## 7. JWT security decisions
 
@@ -192,8 +211,8 @@ excluded. Restore repopulates input for `json`, `hash`, `base64`, `csv`,
 
 ## 11. PWA
 
-`registerType: 'prompt'` — a new version never activates mid-edit. Precaches 75
-files (~5.4 MB), including Monaco and its workers, which is what makes full
+`registerType: 'prompt'` — a new version never activates mid-edit. Precaches 78
+files (~5.9 MB), including Monaco and its workers, which is what makes full
 offline operation possible.
 
 **Verified offline:** with the network disabled, the app boots from cache, the

@@ -1,5 +1,5 @@
 /**
- * Pure adapter: JsonPathIndex (Phase 5's traversal result) → graph nodes and
+ * Pure adapter: JsonPathIndex (the traversal result) → graph nodes and
  * edges. Not a second JSON traversal — this only reshapes data the index
  * already computed, so it stays cheap and never re-walks or clones the parsed
  * document. No React, no graph-rendering library.

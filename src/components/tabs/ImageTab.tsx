@@ -67,6 +67,25 @@ function canvasToBlob(canvas: HTMLCanvasElement, options: { type: string; qualit
   });
 }
 
+/**
+ * JPEG has no alpha channel, so a canvas encodes its transparent pixels as
+ * black. Flatten onto white first so a transparent PNG converts to a sensible
+ * JPEG; PNG and WebP keep their transparency.
+ */
+function drawBitmap(
+  ctx: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D,
+  bitmap: ImageBitmap,
+  width: number,
+  height: number,
+  format: ImageFormat,
+): void {
+  if (format === 'jpeg') {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.drawImage(bitmap, 0, 0, width, height);
+}
+
 export function ImageTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const downloadAnchorRef = useRef<HTMLAnchorElement>(null);
@@ -191,6 +210,16 @@ export function ImageTab() {
     setOutputUrl(null);
     setError(null);
 
+    // The input is capped at LIMITS.INPUT.IMAGE; an upscale target must be too,
+    // or a typed width of 50000 asks the main thread for a multi-gigapixel canvas.
+    if (exceedsPixelLimit({ width: debounced.width, height: debounced.height }, LIMITS.INPUT.IMAGE)) {
+      const limitMp = Math.round(LIMITS.INPUT.IMAGE / 1_000_000);
+      setError(
+        `${debounced.width}×${debounced.height} is over the ${limitMp} MP limit this tool can safely resize on the main thread — reduce the dimensions.`,
+      );
+      return;
+    }
+
     if (ENCODE_PATH === 'none') {
       setError(
         'This browser can’t resize or re-encode images in this tab (no OffscreenCanvas or canvas.toBlob support) — try a recent Chrome, Firefox, or Safari.',
@@ -211,7 +240,7 @@ export function ImageTab() {
           const canvas = new OffscreenCanvas(debounced.width, debounced.height);
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('2d context unavailable');
-          ctx.drawImage(bitmap, 0, 0, debounced.width, debounced.height);
+          drawBitmap(ctx, bitmap, debounced.width, debounced.height, debounced.format);
           blob = await canvas.convertToBlob(blobOptions);
         } else {
           const canvas = document.createElement('canvas');
@@ -219,7 +248,7 @@ export function ImageTab() {
           canvas.height = debounced.height;
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('2d context unavailable');
-          ctx.drawImage(bitmap, 0, 0, debounced.width, debounced.height);
+          drawBitmap(ctx, bitmap, debounced.width, debounced.height, debounced.format);
           blob = await canvasToBlob(canvas, blobOptions);
         }
         if (cancelled) return;

@@ -140,7 +140,7 @@ spending scarce budget.
 |---|---|---|---|
 | **`vite-react-ssg`** | Requires adopting `react-router` and restructuring the entry point around its route objects. Dev X-Ray has no router; its navigation *is* the Zustand tab store. | +2 runtime deps (`react-router`, `react-router-dom` ≈ 20 KB gz) against 615 KiB of precache headroom | **Rejected** — pays a framework migration for markup a custom 200-line script already emits. |
 | **React Router 7 pre-rendering** | Same migration; React Router is not present at all. | Same | **Rejected** — "if already applicable" does not apply. |
-| **`renderToString` the real `App`** | Every one of 23 tools plus Monaco, `useUndoRedo`, Web Workers and `window`-reading store initialisers would have to become SSR-safe and stay that way forever. Monaco cannot render on the server. | 0 | **Rejected** — enormous permanent correctness burden for markup no user sees, and it would put an SSR execution path next to a privacy-first product. |
+| **`renderToString` the real `App`** | Every one of the tools plus Monaco, `useUndoRedo`, Web Workers and `window`-reading store initialisers would have to become SSR-safe and stay that way forever. Monaco cannot render on the server. | 0 | **Rejected** — enormous permanent correctness burden for markup no user sees, and it would put an SSR execution path next to a privacy-first product. |
 | **Extend `scripts/prerender.mjs`** | Zero. Already written, already wired into `npm run build`, already emits per-route directories. | 0 | **Selected.** |
 
 ### Why this is the smallest compatible solution
@@ -191,8 +191,8 @@ The other 29 routes keep exactly the markup they have today.
 | `/` | 200, hub shell | same | brand mark returns here |
 | unknown path | 404 | 404 | falls back to home |
 
-No SPA catch-all rewrite was added — one would replace all 31 per-route
-documents with the generic one. No middleware, no server, no bot-specific
+No SPA catch-all rewrite was added — one would replace every per-route
+document with the generic one. No middleware, no server, no bot-specific
 rendering.
 
 The retired slug is handled in three independent places on purpose. The Vercel

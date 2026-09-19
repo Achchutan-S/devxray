@@ -113,6 +113,9 @@ export const LIMITS = {
      * against *proceeding* with an oversized image, not against the decode
      * allocation itself — say so plainly rather than implying a guarantee
      * this doesn't yet provide for that one format.
+     *
+     * The same ceiling bounds the *resized output* (ImageTab refuses target
+     * dimensions above it), so a typed width cannot ask for a huge canvas.
      */
     IMAGE: 40_000_000,
   },
@@ -164,7 +167,7 @@ export const LIMITS = {
   /** ---- File intake. Checked against `File.size` before a byte is read. ---- */
   FILE: {
     /**
-     * Dropped files are read fully into memory by FileReader, so this is a
+     * Dropped files are read fully into memory (via the File API), so this is a
      * memory ceiling, not a policy one. Checked before the read starts.
      */
     MAX_DROP_BYTES: 25 * MB,

@@ -448,6 +448,8 @@ export function JSONTab() {
                   }}
                   disabled={!treeAvailable}
                   aria-pressed={viewMode === 'tree'}
+                  aria-label="Tree view"
+                  title="Tree view"
                   className={`px-2 py-1 text-xs ${viewMode === 'tree' ? 'bg-accent text-accent-on' : 'text-fg-muted hover:text-fg'} disabled:opacity-40`}
                 >
                   <ListTree className="h-3.5 w-3.5" aria-hidden="true" />
@@ -473,6 +475,8 @@ export function JSONTab() {
                     setJsonView('raw');
                   }}
                   aria-pressed={viewMode === 'raw'}
+                  aria-label="Raw view"
+                  title="Raw view"
                   className={`px-2 py-1 text-xs ${viewMode === 'raw' ? 'bg-accent text-accent-on' : 'text-fg-muted hover:text-fg'}`}
                 >
                   <Braces className="h-3.5 w-3.5" aria-hidden="true" />

@@ -5,13 +5,10 @@ import { TAB_IDS } from '@/constants/tabs';
  * Tab id → component. Every tool is lazily loaded, so a tool's parser only
  * reaches the browser when that tool is opened.
  *
- * Ids not listed in IMPLEMENTED fall back to the placeholder until their phase.
+ * Every registered tool must appear here — index.test.ts fails the build if
+ * one does not, rather than letting the tool render as a blank pane.
  */
-const PlaceholderTab = lazy(() =>
-  import('./PlaceholderTab').then((m) => ({ default: m.PlaceholderTab })),
-);
-
-const IMPLEMENTED: Record<string, LazyExoticComponent<ComponentType>> = {
+export const IMPLEMENTED: Record<string, LazyExoticComponent<ComponentType>> = {
   graphql: lazy(() => import('./GraphQLTab').then((m) => ({ default: m.GraphQLTab }))),
   json: lazy(() => import('./JSONTab').then((m) => ({ default: m.JSONTab }))),
   diff: lazy(() => import('./DiffTab').then((m) => ({ default: m.DiffTab }))),
@@ -38,5 +35,5 @@ const IMPLEMENTED: Record<string, LazyExoticComponent<ComponentType>> = {
   image: lazy(() => import('./ImageTab').then((m) => ({ default: m.ImageTab }))),
 };
 
-export const TAB_COMPONENTS: Readonly<Record<string, LazyExoticComponent<ComponentType>>> =
-  Object.fromEntries(TAB_IDS.map((id) => [id, IMPLEMENTED[id] ?? PlaceholderTab]));
+export const TAB_COMPONENTS: Readonly<Record<string, LazyExoticComponent<ComponentType> | undefined>> =
+  Object.fromEntries(TAB_IDS.map((id) => [id, IMPLEMENTED[id]]));

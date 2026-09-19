@@ -48,7 +48,7 @@ const MATRIX: readonly MatrixRow[] = [
   },
   {
     action: 'File drop',
-    processing: 'Browser (FileReader stream)',
+    processing: 'Browser (File API stream)',
     storage: 'Not persisted',
     storageKind: 'none',
     network: 'None',
@@ -174,7 +174,7 @@ export function PrivacyPage({ onNavigate, onBack }: Props) {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded border border-line bg-surface p-3">
-            <p className="mb-2 text-sm font-medium text-fg">What never leaves your browser</p>
+            <p className="mb-2 text-sm font-medium text-fg">What the application does not transmit</p>
             <p className="text-sm leading-relaxed text-fg-muted">
               The content you work on — payloads, tokens, files, queries. No application
               code transmits it, which the network audit confirms end to end.
@@ -217,7 +217,8 @@ export function PrivacyPage({ onNavigate, onBack }: Props) {
           <div className="rounded border border-line bg-surface p-3">
             <code className="font-mono text-xs text-accent">{STORAGE_KEYS.preferences}</code>
             <p className="mt-1 text-sm text-fg-muted">
-              Theme, pinned tabs, tab order, last active tool, navigation panel state. No
+              Theme, pinned, ordered and open tabs, last active tool, navigation panel
+              state, the JSON result view (raw, tree or graph) and panel split sizes. No
               tool content.
             </p>
           </div>
@@ -269,7 +270,7 @@ export function PrivacyPage({ onNavigate, onBack }: Props) {
             title="File drop"
             stages={[
               { label: 'Input', value: 'Local file', kind: 'local' },
-              { label: 'Processing', value: 'Browser FileReader', kind: 'local' },
+              { label: 'Processing', value: 'Browser File API', kind: 'local' },
               { label: 'Storage', value: 'Not persisted', kind: 'none' },
               { label: 'Network', value: 'None', kind: 'none' },
             ]}

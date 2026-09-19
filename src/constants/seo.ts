@@ -109,7 +109,7 @@ export const TOOL_SEO: Readonly<Record<string, SeoEntry>> = {
   json: {
     title: 'JSON Formatter, Validator & Tree Viewer',
     description:
-      'Format, minify, validate and explore JSON in your browser. Filter keys, browse a collapsible tree, and diff input against output. Large documents parse in a Web Worker so typing stays responsive.',
+      'Format, minify, validate and explore JSON in your browser. Filter keys, browse a collapsible tree or a graph, search and copy the path of any node, and diff input against output. Large documents parse in a Web Worker so typing stays responsive.',
   },
   jsontype: {
     title: 'JSON to TypeScript, Zod, Go, Pydantic & Rust',
@@ -214,12 +214,12 @@ export const TOOL_SEO: Readonly<Record<string, SeoEntry>> = {
   history: {
     title: 'Local Operation History',
     description:
-      'Browse, search and restore past operations from twelve Dev X-Ray tools. History is kept in your own browser storage and never leaves it. JWT tokens are deliberately excluded.',
+      'Browse, search and restore past operations from twelve Dev X-Ray tools. History is kept in your own browser storage and is not transmitted by the application. JWT tokens are deliberately excluded.',
   },
   image: {
     title: 'Image Resizer & Converter — JPEG, PNG, WebP',
     description:
-      'Resize and re-encode images to JPEG, PNG or WebP in your browser. Adjust dimensions with an aspect-ratio lock and quality slider, then download — the file never leaves your machine.',
+      'Resize and re-encode images to JPEG, PNG or WebP in your browser. Adjust dimensions with an aspect-ratio lock and quality slider, then download — the file is processed in the browser and not uploaded.',
   },
 };
 export const PAGE_SEO: Readonly<Record<ContentPageId, SeoEntry>> = {

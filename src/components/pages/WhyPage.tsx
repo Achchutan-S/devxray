@@ -65,7 +65,7 @@ export function WhyPage({ onNavigate, onBack }: Props) {
           <p>Then I needed JSON. Then cURL. Then JWT. Then Base64. Then Regex. Then Cron. Then CSV.</p>
           <p>
             Eventually the tiny formatter had turned into a workspace. That became Dev
-            X-Ray. It was not designed as a product with 23 tools; it accumulated them,
+            X-Ray. It was not designed as a product with 24 tools; it accumulated them,
             one annoyance at a time.
           </p>
         </div>
@@ -114,7 +114,7 @@ export function WhyPage({ onNavigate, onBack }: Props) {
           </p>
           <p>
             You can find every one of these tools elsewhere, often in several places, and
-            many of those implementations are excellent. &ldquo;23 tools&rdquo; is not a moat and
+            many of those implementations are excellent. &ldquo;24 tools&rdquo; is not a moat and
             claiming otherwise would be silly.
           </p>
           <p>What is genuinely different is the combination:</p>
@@ -122,7 +122,7 @@ export function WhyPage({ onNavigate, onBack }: Props) {
             <li>A privacy-first architecture that is a structural property, not a policy — there is no server to send data to.</li>
             <li>Claims you can verify yourself in a minute with DevTools, rather than a privacy policy asking for trust.</li>
             <li>Genuine offline operation, including the bundled editor and tools you have never opened.</li>
-            <li>One integrated workspace with shared history, share links and file routing, instead of 23 separate sites.</li>
+            <li>One integrated workspace with shared history, share links and file routing, instead of 24 separate sites.</li>
             <li>The Mapper, which does not have an obvious equivalent in the utility-bundle category.</li>
             <li>Publicly readable, MIT-licensed source, so the privacy claims can be checked against the implementation — and so you can self-host it rather than trust a deployment.</li>
           </ul>

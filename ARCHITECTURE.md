@@ -96,13 +96,14 @@ grammar) means adding a worker — weigh it deliberately.
 
 ---
 
-## 4. Three stores, no facade
+## 4. Four stores, no facade
 
-**Decision.** `usePreferenceStore` (persisted), `useHistoryStore` (persisted) and
-`useUIStore` (ephemeral) are consumed directly. There is no combined store hook.
+**Decision.** `usePreferenceStore` (persisted), `useHistoryStore` (persisted),
+`useMapperStore` (persisted, under its own key) and `useUIStore` (ephemeral) are
+consumed directly. There is no combined store hook.
 
 **Why.** A facade that spreads every slice into one object subscribes each consumer to
-all three, so an unrelated change re-renders everything. Components select the one
+every slice, so an unrelated change re-renders everything. Components select the one
 field they need.
 
 **Boundaries.** Preferences are what should survive a reload (theme, pinned tabs, tab

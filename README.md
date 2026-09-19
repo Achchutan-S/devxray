@@ -12,14 +12,12 @@ A browser-first developer toolkit. Format, decode, convert and inspect the thing
 you deal with every day — GraphQL, JSON, YAML, SQL, JWTs, cron expressions — without
 any of it leaving your machine.
 
-> **Status: Phase 6 complete — 23 of 23 tools implemented.**
-> Every tool in the toolkit works end to end, including Regex, Timestamp, Case,
-> Color and Cron. Phase 6 was a release-hardening pass rather than new tools: it
-> exercised the whole app as a real developer would, hardened share links and file
-> drops against malformed input, and closed a handful of consistency and safety
-> gaps (a destructive action reachable without its confirmation, duplicate
-> success toasts on file drop, silent share-link failures). See
-> [Roadmap](#roadmap) and [ARCHITECTURE.md](ARCHITECTURE.md) for the details.
+> **Status: complete — 24 of 24 tools implemented.**
+> Every tool works end to end. Beyond the original tool set the app now has three
+> JSON views (Raw, Tree, Graph) with path search and copy-path, resizable panels
+> (including a vertical splitter in Diff), an Image resize/convert tool, and
+> binary-aware file dropping. See [Roadmap](#roadmap) and
+> [ARCHITECTURE.md](ARCHITECTURE.md) for the details.
 
 ## Why it exists
 
@@ -32,8 +30,8 @@ Installed as a PWA, it works with the network off.
 
 A tool's "Share" button copies a link with its state compressed into the URL hash
 (`#/{tool}/{compressed}`) — nothing is uploaded, and the link only works because the
-receiving browser decodes the hash itself. Every tool carries one except **History**
-and **Mapper**: History is a log of past operations rather than a state worth sending
+receiving browser decodes the hash itself. Every tool carries one except **History**,
+**Mapper** and **Image**: History is a log of past operations rather than a state worth sending
 to someone, and Mapper's state is larger than a URL should carry. A hash
 that fails to decode, or names a tool id that no longer exists, is rejected
 safely with a `toast.error` rather than failing silently or loading a broken
@@ -85,8 +83,9 @@ than pretending to restore something it can't.
 - **No telemetry.** No analytics, no error reporting, no beacons.
 - **No third-party runtime requests.** Monaco is bundled from `node_modules`, not
   fetched from a CDN, so opening the app contacts nothing but the origin serving it.
-- **Local storage only.** Preferences and history live in your browser's
-  `localStorage` under `devxray_*` keys and never leave the device.
+- **Local storage only.** Three `localStorage` keys are written — preferences
+  (`devxray_preferences`), history (`devxray_history`) and Mapper state
+  (`devxray_mapper_state`) — and the application never transmits them.
 - **Nothing sensitive is logged.** Crash reporting writes an error message and
   component stack to the console; it never logs the contents of your editors.
 - **JWT secrets never leave `verifyHmacSignature`.** They are used once, in memory,
@@ -114,6 +113,8 @@ measured cost and collected in `LIMITS` in [src/utils/constants.ts](src/utils/co
 |---|---|
 | Input size | Per-format, in UTF-8 bytes. JSON/CSV/Hash 10 MB; XML/SQL/GraphQL/Case 2 MB; YAML 1 MB; Markdown 512 KB; cURL 256 KB; URL/JWT 64 KB |
 | Rendering | CSV renders 1,000 rows (copy/export keep all); the JSON tree summarises above 200 children per container |
+| JSON path index / Graph | Search and copy-path index up to 50,000 nodes; the Graph view draws up to 300 and says so beyond that rather than rendering a partial graph |
+| Images | 40 megapixels decoded, for both the source and the resized output; PNG/JPEG/GIF/WebP are checked from the file header before any decode |
 | Regex | Syntax validated on the main thread; execution in a worker terminated after 2.5 s |
 | History | 100 entries, 2,000 chars per field, 8,000 chars total. JWT excluded |
 | Share links | State above 500,000 characters is not shareable |
@@ -167,10 +168,10 @@ rather than a subpath unless you adjust both.
 ## PWA behaviour
 
 - **Installable** via the browser's native install affordance.
-- **Offline capable.** All 75 unique build assets are precached (≈5.4 MB, 90% of the
-  6 MB ceiling), including the Monaco chunk, both editor workers (plus the Regex
-  tool's own Web Worker), and Monaco's icon font. The editor works with the network
-  off.
+- **Offline capable.** All 78 unique build assets are precached (≈5.6 MiB), including
+  every lazily-loaded tool chunk, the Monaco chunk, both editor workers (plus the
+  Regex tool's own Web Worker), and Monaco's icon font. The editor works with the
+  network off.
 - **Updates are offered, never forced.** The service worker registers with
   `registerType: 'prompt'`. When a new version is detected the app shows a toast with
   *Reload* and *Later*; nothing swaps underneath you mid-edit. Registered clients
@@ -198,22 +199,32 @@ deliberately steps aside when focus is in a text surface.
 
 | Category | Tools |
 |---|---|
-| Formatters | GraphQL, JSON, Types, YAML, XML, SQL |
+| Formatters | GraphQL, JSON, Types, YAML, XML, SQL, Diff |
 | Encoding & security | URL, cURL, JWT, Base64, Hash, UUID |
-| Utilities | Diff, Regex, Timestamp, Case, Color, Cron, Mock, CSV, Markdown |
+| Utilities | Regex, Timestamp, Case, Color, Cron, Image |
+| Data | Mock, CSV, Markdown |
 | Management | Mapper, History |
 
-All 23 are implemented.
+All 24 are implemented.
 
 ### What each tool does
 
 - **GraphQL** — formats via Prettier, analyses depth/fields/arguments on a real AST,
   filters the query down to selected fields, extracts inline literals into variables,
   unwraps a captured POST body, and exports to cURL / fetch / Python.
-- **JSON** — formats, minifies, filters keys (shallow or deep), shows a tree or raw
-  view, and hands input and output to Diff. Inputs over 100 kB parse in a Web Worker;
-  over 500 kB the tree view is disabled to keep typing responsive.
-- **Diff** — Monaco's diff editor, side-by-side or inline, with a line-level summary.
+- **JSON** — formats, minifies, filters keys (shallow or deep), and hands input and
+  output to Diff. The result has three views: **Raw** (the default, and remembered
+  across visits), **Tree**, and **Graph**. In Tree and Graph every node has a
+  canonical path (`$.items[0]["first-name"]`); clicking a leaf copies its path, and
+  Tree adds a key/value search. Graph is a read-only, deterministic layout capped at
+  300 nodes. Inputs over 100 kB parse in a Web Worker; over 500 kB Tree and Graph
+  are disabled to keep typing responsive.
+- **Diff** — Monaco's diff editor, side-by-side or inline, with a line-level summary
+  and a draggable vertical splitter between the input panes and the differences view.
+- **Image** — drop or choose a PNG, JPEG, WebP, AVIF or GIF, resize it with an
+  aspect-ratio lock, and download it as JPEG, PNG or WebP. It runs entirely through
+  the Canvas API: the file is never uploaded, and re-encoding strips EXIF (including
+  GPS) and the colour profile. Transparent pixels are flattened onto white for JPEG.
 - **cURL** — parses a command with proper shell quoting and converts it to fetch,
   axios, Python requests, Go `net/http` or Java `HttpClient`. Credentials are always
   emitted as placeholders, never inlined.
@@ -289,12 +300,13 @@ All 23 are implemented.
 | 2 | GraphQL, JSON, Diff, cURL, Types, YAML, SQL, XML | **Done** |
 | 3 | URL, JWT, Base64, Hash, UUID; share links; tab bar promotion | **Done** |
 | 4 | Mock, CSV, Markdown, Mapper, History; history log wired into 7 tools | **Done** |
-| 5 | Regex, Timestamp, Case, Color, Cron — the final 5 tools, 23/23 complete | **Done** |
-| 6 | Release hardening: real-world QA across all 23 tools, share-link and file-drop safety, destructive-action consistency, keyboard/ARIA fixes | **Done** |
-| 7 | BYOK AI assistant | Not started |
+| 5 | Regex, Timestamp, Case, Color, Cron — the last 5 of the original 23 tools | **Done** |
+| 6 | Release hardening: real-world QA across the 23 tools then shipped, share-link and file-drop safety, destructive-action consistency, keyboard/ARIA fixes | **Done** |
+| — | Refinements after Phase 6: persisted JSON view, resizable panels and Diff vertical split, Image tool, JSON path model with Tree search, JSON Graph view | **Done** |
+| 7 | BYOK AI assistant | Not started — not part of the current release |
 
-Broader undo/redo (currently JSON, GraphQL and XML only), drafts, and a graph
-visualisation view remain unscheduled ideas rather than a committed phase.
+Broader undo/redo (currently JSON, GraphQL and XML only) and drafts remain
+unscheduled ideas rather than a committed phase.
 
 ## Project structure
 
@@ -308,9 +320,11 @@ src/
 ├── hooks/          Hotkeys, focus trap, debounce, file-drop and command registries
 ├── store/          Four Zustand stores, split by responsibility (incl. Mapper's own)
 ├── types/          Shared interfaces
-└── utils/          Pure logic: theming, tab layout, fuzzy search, file routing,
-    │               history-restore transport, shared CSV escaping
+└── utils/          Pure logic: theming, tab layout, panel sizing, fuzzy search, file
+    │               routing, image header probing, history-restore transport, shared
+    │               CSV escaping
     ├── formatters/ One pure module per tool: parse, analyse, transform
+    ├── jsonPath/   Canonical JSON paths, node index, search, graph adapter and layout
     ├── mapper/     Path flattening, the suggestion engine, row lifecycle, import/export
     └── monaco/     Monaco bootstrap: local bundling, workers, language subset
 workers/            Off-main-thread JSON parsing and regex execution

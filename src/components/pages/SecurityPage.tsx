@@ -183,8 +183,8 @@ export function SecurityPage({ onNavigate, onBack }: Props) {
       </Section>
 
       <Section
-        title="Files stay on your machine"
-        lead="Dropped files are read by the browser's own FileReader and never transmitted — there is no upload endpoint in the application to transmit them to."
+        title="Dropped files are not uploaded"
+        lead="Dropped files are read by the browser's own File API and never transmitted — there is no upload endpoint in the application to transmit them to."
       >
         <ul className="space-y-1.5 text-sm text-fg-muted">
           <li>Files are streamed into memory and routed to the tool that handles that extension.</li>

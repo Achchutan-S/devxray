@@ -76,9 +76,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         /**
-         * Function form (rather than the blueprint's static map) so chunking keeps
-         * working as later phases add formatter dependencies, with no dead config
-         * entries for packages that are not installed yet.
+         * Function form (rather than a static map) so chunking keeps working as
+         * formatter dependencies are added, with no dead config entries for
+         * packages that are not installed.
          */
         manualChunks(id: string) {
           if (!id.includes('node_modules')) return undefined;
@@ -87,7 +87,7 @@ export default defineConfig({
           // rather than letting it be duplicated or split across tool chunks.
           if (id.includes('monaco-editor')) return 'monaco';
           // Anchored to the node_modules package boundary, not a bare substring:
-          // `id.includes('/react/')` also matched `@xyflow/react` (Phase 6) and
+          // `id.includes('/react/')` also matched `@xyflow/react` and
           // `@monaco-editor/react`, silently pulling a lazily-loaded dependency
           // the size of React itself into this always-eager chunk.
           if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
