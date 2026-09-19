@@ -58,6 +58,31 @@ describe('layoutJsonGraph — no overlapping positions', () => {
   });
 });
 
+describe('layoutJsonGraph — horizontal direction', () => {
+  it('makes depth grow X by a fixed column width per level, and keeps Y constant for an unbranched chain', () => {
+    const positions = layoutJsonGraph(graphOf({ a: { b: { c: 1 } } }), 'horizontal');
+    const rootX = positions.get('$')!.x;
+    const aX = positions.get('$.a')!.x;
+    const bX = positions.get('$.a.b')!.x;
+    expect(aX - rootX).toBe(GRAPH_NODE_WIDTH + GRAPH_H_GAP);
+    expect(bX - aX).toBe(GRAPH_NODE_WIDTH + GRAPH_H_GAP);
+    const ys = ['$', '$.a', '$.a.b', '$.a.b.c'].map((id) => positions.get(id)!.y);
+    expect(new Set(ys).size).toBe(1);
+  });
+
+  it('still gives every sibling a distinct position, spread along Y instead of X', () => {
+    const positions = layoutJsonGraph(graphOf({ items: ['A', 'B', 'C'] }), 'horizontal');
+    const ys = ['$.items[0]', '$.items[1]', '$.items[2]'].map((id) => positions.get(id)!.y);
+    expect(new Set(ys).size).toBe(ys.length);
+    expect(ys).toEqual([...ys].sort((a, b) => a - b));
+  });
+
+  it('defaults to vertical when no direction is given', () => {
+    const graph = graphOf({ a: { b: 1 } });
+    expect(layoutJsonGraph(graph)).toEqual(layoutJsonGraph(graph, 'vertical'));
+  });
+});
+
 describe('layoutJsonGraph — determinism', () => {
   it('produces identical coordinates across repeated calls on the same graph shape', () => {
     const doc = { user: { name: 'Alice', address: { city: 'Paris' } }, items: [1, 2, 3] };

@@ -504,7 +504,7 @@ export function JSONTab() {
           onChange={(next) => history.set({ ...present, selectedKeys: next })}
         />
 
-        {selectableKeys.length > 0 && (
+        {present.selectedKeys.size > 0 && (
           <div className="shrink-0 flex items-center gap-2 border-b border-line bg-surface px-3 py-1 text-xs text-fg-muted">
             <span>Filter depth</span>
             {(['shallow', 'deep'] as const).map((mode) => (

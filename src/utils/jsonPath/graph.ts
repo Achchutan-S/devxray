@@ -140,3 +140,31 @@ export function visibleGraph(graph: JsonGraph, collapsedIds: ReadonlySet<string>
     edges: graph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target)),
   };
 }
+
+/**
+ * Every id strictly beneath `nodeId` (not including `nodeId` itself) —
+ * the set a "recursive" expand/collapse toggles in one action, instead of
+ * only the one node a plain click affects. Walked with an explicit stack,
+ * not recursion, for the same reason `buildJsonPathIndex` is iterative: a
+ * pathologically deep document must not blow the call stack here either.
+ */
+export function descendantIds(graph: JsonGraph, nodeId: string): ReadonlySet<string> {
+  const childrenByParent = new Map<string, string[]>();
+  for (const node of graph.nodes) {
+    if (node.parentId === null) continue;
+    const siblings = childrenByParent.get(node.parentId);
+    if (siblings) siblings.push(node.id);
+    else childrenByParent.set(node.parentId, [node.id]);
+  }
+
+  const result = new Set<string>();
+  const stack = [...(childrenByParent.get(nodeId) ?? [])];
+  while (stack.length > 0) {
+    const id = stack.pop();
+    if (id === undefined || result.has(id)) continue;
+    result.add(id);
+    const children = childrenByParent.get(id);
+    if (children) stack.push(...children);
+  }
+  return result;
+}

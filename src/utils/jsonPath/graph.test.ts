@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildJsonPathIndex, type JsonPathIndex } from './traversal';
-import { buildJsonGraph, graphNodesWithChildren, visibleGraph, visibleGraphNodeIds, type JsonGraph } from './graph';
+import {
+  buildJsonGraph,
+  descendantIds,
+  graphNodesWithChildren,
+  visibleGraph,
+  visibleGraphNodeIds,
+  type JsonGraph,
+} from './graph';
 
 function indexOf(value: unknown): JsonPathIndex {
   const result = buildJsonPathIndex(value);
@@ -193,5 +200,30 @@ describe('visibleGraph', () => {
     const filtered = visibleGraph(graph, new Set(['$.user']));
     expect(filtered.nodes.map((n) => n.id)).toEqual(['$', '$.user']);
     expect(filtered.edges.map((e) => e.id)).toEqual(['$->$.user']);
+  });
+});
+
+describe('descendantIds', () => {
+  it('collects every level beneath a node, not just direct children', () => {
+    const graph = graphOf({ user: { name: 'Alice', address: { city: 'Paris', zip: '75001' } }, other: 1 });
+    const ids = descendantIds(graph, '$.user');
+    expect(ids).toEqual(new Set(['$.user.name', '$.user.address', '$.user.address.city', '$.user.address.zip']));
+  });
+
+  it('does not include the node itself', () => {
+    const graph = graphOf({ a: { b: 1 } });
+    expect(descendantIds(graph, '$.a').has('$.a')).toBe(false);
+  });
+
+  it('is empty for a leaf node', () => {
+    const graph = graphOf({ a: 1 });
+    expect(descendantIds(graph, '$.a').size).toBe(0);
+  });
+
+  it('does not cross into sibling subtrees', () => {
+    const graph = graphOf({ a: { x: 1 }, b: { y: 1 } });
+    const ids = descendantIds(graph, '$.a');
+    expect(ids.has('$.b')).toBe(false);
+    expect(ids.has('$.b.y')).toBe(false);
   });
 });

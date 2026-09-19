@@ -17,13 +17,19 @@ export interface GraphPosition {
   readonly y: number;
 }
 
+/** 'vertical': depth grows downward, siblings spread left-right (the original, and still the default). 'horizontal': depth grows rightward, siblings spread top-bottom — better for wide-but-shallow documents. */
+export type GraphLayoutDirection = 'vertical' | 'horizontal';
+
 /** Card size the layout assumes — the UI must render cards at (or near) this size for the spacing to read as intended. */
 export const GRAPH_NODE_WIDTH = 180;
 export const GRAPH_NODE_HEIGHT = 60;
 export const GRAPH_H_GAP = 32;
 export const GRAPH_V_GAP = 56;
 
-export function layoutJsonGraph(graph: JsonGraph): ReadonlyMap<string, GraphPosition> {
+export function layoutJsonGraph(
+  graph: JsonGraph,
+  direction: GraphLayoutDirection = 'vertical',
+): ReadonlyMap<string, GraphPosition> {
   const positions = new Map<string, GraphPosition>();
   if (graph.nodes.length === 0) return positions;
 
@@ -49,13 +55,15 @@ export function layoutJsonGraph(graph: JsonGraph): ReadonlyMap<string, GraphPosi
   computeWidth(root.id);
 
   // Top-down: walk each node's children left to right within its own span.
+  // The two directions share the exact same slot math — only which axis
+  // "depth" and "slot" land on swaps, so a document's shape never changes,
+  // only how it's projected onto the canvas.
   function place(id: string, leftSlot: number, depth: number): void {
     const width = slotWidth.get(id) ?? 1;
     const centerSlot = leftSlot + width / 2;
-    positions.set(id, {
-      x: centerSlot * (GRAPH_NODE_WIDTH + GRAPH_H_GAP),
-      y: depth * (GRAPH_NODE_HEIGHT + GRAPH_V_GAP),
-    });
+    const along = centerSlot * (direction === 'vertical' ? GRAPH_NODE_WIDTH + GRAPH_H_GAP : GRAPH_NODE_HEIGHT + GRAPH_V_GAP);
+    const across = depth * (direction === 'vertical' ? GRAPH_NODE_HEIGHT + GRAPH_V_GAP : GRAPH_NODE_WIDTH + GRAPH_H_GAP);
+    positions.set(id, direction === 'vertical' ? { x: along, y: across } : { x: across, y: along });
 
     let cursor = leftSlot;
     for (const kidId of childrenOf.get(id) ?? []) {
