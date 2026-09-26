@@ -95,15 +95,14 @@ export function TextCaseTab() {
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
-
   return (
     <TabShell split resizable="textcase">
-      <InlineError message={convertError} />
       <Pane bordered>
         <PaneHeader
           title="Input"
           actions={<IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />}
         />
+        <InlineError message={convertError} />
         <PaneBody className="p-3">
           <textarea
             value={input}

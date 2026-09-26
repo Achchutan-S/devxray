@@ -64,7 +64,7 @@ export function App() {
   const handleOpenNav = useCallback(() => setNavOpen(true), []);
   const handleCloseNav = useCallback(() => setNavOpen(false), []);
 
-  useImportShareLink(setActiveTab);
+  const shareImportCount = useImportShareLink(setActiveTab);
   const { page, navigateToPage, navigateHome, navigateToBase } = useRouter();
 
   useHotkeyManager({
@@ -111,8 +111,9 @@ export function App() {
 
             <main
               // Remounting on tab change resets each tool's local state, so switching
-              // away and back never resurrects a half-finished operation.
-              key={activeTab}
+              // away and back never resurrects a half-finished operation. The share
+              // import count remounts it once a share link's payload is staged.
+              key={`${activeTab}:${shareImportCount}`}
               role="tabpanel"
               aria-label={tabMeta?.label ?? 'Tool'}
               className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"

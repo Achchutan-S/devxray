@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { isValidTabId } from '@/constants/tabs';
 import { clearShareHash, decodeShareHash, stageSharedState } from '@/utils/shareState';
@@ -10,8 +10,15 @@ import { clearShareHash, decodeShareHash, stageSharedState } from '@/utils/share
  * Runs once for the life of the page. React StrictMode's double-invoked effect
  * is naturally harmless here: the hash is cleared inside the first invocation,
  * so the second sees nothing left to decode.
+ *
+ * Returns a counter that bumps once a payload is staged. Decoding is async, so
+ * the target tool is usually already mounted (the link's path opens it) and has
+ * already run its one-shot `consumeSharedState`; keying the tool on this
+ * counter remounts it so it picks the staged payload up.
  */
-export function useImportShareLink(setActiveTab: (tabId: string) => void): void {
+export function useImportShareLink(setActiveTab: (tabId: string) => void): number {
+  const [importCount, setImportCount] = useState(0);
+
   useEffect(() => {
     const rawHash = window.location.hash;
     // An arbitrary hash that never matched the share format at all (or no
@@ -41,7 +48,9 @@ export function useImportShareLink(setActiveTab: (tabId: string) => void): void 
 
       stageSharedState(shared);
       setActiveTab(shared.tab);
-      toast.success('State loaded from shared link');
+      setImportCount((count) => count + 1);
     });
   }, [setActiveTab]);
+
+  return importCount;
 }

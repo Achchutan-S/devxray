@@ -169,7 +169,13 @@ function ResizableTabShell({
     [commit, isVertical, minFraction],
   );
 
-  const [first, second] = Children.toArray(children);
+  const regions = Children.toArray(children);
+  // Anything past the second child is silently dropped, so a stray sibling (an
+  // error strip, say) would push the second pane out of the layout entirely.
+  if (import.meta.env.DEV && regions.length !== 2) {
+    console.error(`TabShell "${id}" is resizable and needs exactly 2 children, got ${regions.length}.`);
+  }
+  const [first, second] = regions;
 
   return (
     <div

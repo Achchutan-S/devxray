@@ -90,7 +90,7 @@ export function MarkdownTab() {
 
   useTabHotkeys({ onCopyOutput: handleCopyHtml });
 
-  const sharePayload = useMemo(() => ({ input: input }), [input]);
+  const sharePayload = useMemo(() => ({ input }), [input]);
   const { share: shareLink } = useShareAction({
     tab: TAB_ID,
     data: sharePayload,
@@ -108,17 +108,17 @@ export function MarkdownTab() {
 
   return (
     <TabShell split resizable="markdown">
-      <InlineError message={renderError} />
       <Pane bordered>
         <PaneHeader
           title="Markdown"
           actions={
-              <>
-                <IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />
-                <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
-              </>
-            }
+            <>
+              <IconButton icon={Eraser} label="Clear" onClick={handleClear} disabled={input === ''} />
+              <ShareButton tab={TAB_ID} data={sharePayload} contentLength={input.length} />
+            </>
+          }
         />
+        <InlineError message={renderError} />
         <PaneBody>
           <textarea
             value={input}

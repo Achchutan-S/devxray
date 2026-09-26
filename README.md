@@ -1,5 +1,5 @@
 ---
-noteId: "ccab3820a91011f1aad9c952699fe135"
+noteId: "7832f170b99b11f19fc6f9bc52e2b2bb"
 tags: []
 
 ---
@@ -28,9 +28,17 @@ Installed as a PWA, it works with the network off.
 
 ## Share links
 
-A tool's "Share" button copies a link with its state compressed into the URL hash
-(`#/{tool}/{compressed}`) — nothing is uploaded, and the link only works because the
-receiving browser decodes the hash itself. Every tool carries one except **History**,
+A tool's "Share" button (or "Copy share link" in the command palette) copies a link
+with its state compressed into the URL hash (`/{slug}#/{tool}/{compressed}`) — nothing
+is uploaded, and the link only works because the receiving browser decodes the hash
+itself. Opening one loads that tool with the shared state and clears the hash.
+
+Payloads are raw DEFLATE via the browser's native `CompressionStream`, base64url-encoded
+and marked with a `1.` prefix (16–47% smaller than `lz-string` on real tool state).
+Browsers without `CompressionStream` fall back to `lz-string`, and every
+`lz-string` link ever handed out still decodes.
+
+Every tool carries one except **History**,
 **Mapper** and **Image**: History is a log of past operations rather than a state worth sending
 to someone, and Mapper's state is larger than a URL should carry. A hash
 that fails to decode, or names a tool id that no longer exists, is rejected
@@ -47,8 +55,12 @@ source of truth for the slug table, guarded by `assertRouteCoverage()` in
 
 `npm run build` runs `scripts/prerender.mjs` after `vite build`, emitting a real
 directory per route (`dist/<slug>/index.html`) with a unique `<title>`,
-description, canonical and Open Graph tags rewritten in. The GraphQL Formatter
-route goes further, as a pilot: its prerendered document contains a full
+description, canonical and Open Graph tags rewritten in — 32 shells in all (home,
+24 tools, 7 content pages). With a site origin configured (see
+[Deployment](#deployment)) it also writes `sitemap.xml` and absolute canonicals.
+
+Two routes go further, as a pilot: the GraphQL Formatter and the home hub that
+links to it. Their prerendered documents contain a full
 crawlable shell inside `#root` — an `<h1>`, real body copy, a JSON-LD
 `WebApplication` block, and genuine `<a href>` tool links — that React's
 `createRoot().render()` replaces the instant the app mounts, so nothing is
@@ -110,7 +122,7 @@ in. Resource-heavy operations are therefore bounded, with ceilings set from
 measured cost and collected in `LIMITS` in [src/utils/constants.ts](src/utils/constants.ts).
 
 | Area | Bound |
-|---|---|
+| --- | --- |
 | Input size | Per-format, in UTF-8 bytes. JSON/CSV/Hash 10 MB; XML/SQL/GraphQL/Case 2 MB; YAML 1 MB; Markdown 512 KB; cURL 256 KB; URL/JWT 64 KB |
 | Rendering | CSV renders 1,000 rows (copy/export keep all); the JSON tree summarises above 200 children per container |
 | JSON path index / Graph | Search and copy-path index up to 50,000 nodes; the Graph view draws up to 300 and says so beyond that rather than rendering a partial graph |
@@ -134,7 +146,7 @@ ceiling can still be slow.
 ## Requirements
 
 | | |
-|---|---|
+| --- | --- |
 | Node | 18.19+ or **20 LTS / 22 LTS recommended** |
 | npm | 9+ |
 
@@ -150,7 +162,7 @@ npm run dev          # http://127.0.0.1:5173
 ```
 
 | Script | Purpose |
-|---|---|
+| --- | --- |
 | `npm run dev` | Vite dev server, bound to loopback only |
 | `npm run build` | Production build into `dist/` (includes the service worker and the prerender step) |
 | `npm run preview` | Serve the production build locally |
@@ -165,10 +177,20 @@ npm run dev          # http://127.0.0.1:5173
 The manifest declares `scope: '/'` and `start_url: '/'`, so deploy at a domain root
 rather than a subpath unless you adjust both.
 
+The prerender step needs the site's origin to emit absolute canonical URLs and a
+`sitemap.xml`. It takes the first of `--base https://example.com`
+(`npm run prerender -- --base …`), `SITE_URL`, or Vercel's
+`VERCEL_PROJECT_PRODUCTION_URL`. Without one, canonicals stay relative and the
+sitemap is skipped:
+
+```bash
+SITE_URL=https://tools.example.com npm run build
+```
+
 ## PWA behaviour
 
 - **Installable** via the browser's native install affordance.
-- **Offline capable.** All 78 unique build assets are precached (≈5.6 MiB), including
+- **Offline capable.** All 80 build assets are precached (≈5.6 MiB), including
   every lazily-loaded tool chunk, the Monaco chunk, both editor workers (plus the
   Regex tool's own Web Worker), and Monaco's icon font. The editor works with the
   network off.
@@ -180,7 +202,7 @@ rather than a subpath unless you adjust both.
 ## Keyboard
 
 | Shortcut | Action |
-|---|---|
+| --- | --- |
 | `⌘/Ctrl+K` | Command palette |
 | `⌘/Ctrl+1…9` | Jump to a tool by position |
 | `⌘/Ctrl+Shift+L` | Toggle theme |
@@ -198,7 +220,7 @@ deliberately steps aside when focus is in a text surface.
 ## The toolkit
 
 | Category | Tools |
-|---|---|
+| --- | --- |
 | Formatters | GraphQL, JSON, Types, YAML, XML, SQL, Diff |
 | Encoding & security | URL, cURL, JWT, Base64, Hash, UUID |
 | Utilities | Regex, Timestamp, Case, Color, Cron, Image |
@@ -206,6 +228,17 @@ deliberately steps aside when focus is in a text surface.
 | Management | Mapper, History |
 
 All 24 are implemented.
+
+### Navigation
+
+A category rail and tool panel sit beside the workspace (a drawer on mobile), and a
+tab bar above it holds the tools you are working in. A first visit opens ten tools;
+after that the bar is whatever you leave open. Tabs can be pinned, reordered and
+closed, and opening a tool from anywhere (panel, palette, share link, dropped file)
+puts it back in the bar. The panel also links to seven documentation and trust
+pages: **Why Dev X-Ray**, **Technology**, **FAQ**, **Compare**, **Privacy**,
+**Security** and **Self-hosting** (`/why`, `/technology`, `/faq`, `/compare`,
+`/privacy`, `/security`, `/enterprise`).
 
 ### What each tool does
 
@@ -295,7 +328,7 @@ All 24 are implemented.
 ## Roadmap
 
 | Phase | Scope | Status |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Foundation: shell, editor, layout, theme, palette, shortcuts, file drop, PWA | **Done** |
 | 2 | GraphQL, JSON, Diff, cURL, Types, YAML, SQL, XML | **Done** |
 | 3 | URL, JWT, Base64, Hash, UUID; share links; tab bar promotion | **Done** |
@@ -310,24 +343,32 @@ unscheduled ideas rather than a committed phase.
 
 ## Project structure
 
-```
+```text
 src/
 ├── components/
-│   ├── common/     Editor, layout primitives, palette, overlays, dropzone
-│   ├── layout/     Header, tab bar, focus-mode banner
+│   ├── common/     Editor, layout primitives, palette, overlays, dropzone, share button,
+│   │               JSON tree and graph views
+│   ├── layout/     Header, category rail + tool panel, tab bar, focus-mode banner
+│   ├── pages/      Lazy-loaded documentation and trust pages
 │   └── tabs/       Tool components + the lazy id → component map
-├── constants/      Tool registry, drag MIME types, shortcut reference
-├── hooks/          Hotkeys, focus trap, debounce, file-drop and command registries
+├── constants/      Tool registry, routes and SEO tables, commands, drag MIME types,
+│                   shortcut reference
+├── hooks/          Router, hotkeys, focus trap, debounce, undo/redo, share action and
+│                   import, file-drop and command registries
 ├── store/          Four Zustand stores, split by responsibility (incl. Mapper's own)
 ├── types/          Shared interfaces
-└── utils/          Pure logic: theming, tab layout, panel sizing, fuzzy search, file
-    │               routing, image header probing, history-restore transport, shared
-    │               CSV escaping
-    ├── formatters/ One pure module per tool: parse, analyse, transform
-    ├── jsonPath/   Canonical JSON paths, node index, search, graph adapter and layout
-    ├── mapper/     Path flattening, the suggestion engine, row lifecycle, import/export
-    └── monaco/     Monaco bootstrap: local bundling, workers, language subset
-workers/            Off-main-thread JSON parsing and regex execution
+├── utils/          Pure logic: theming, tab layout, panel sizing, fuzzy search, file
+│   │               routing, share-link encoding, image header probing,
+│   │               history-restore transport, shared CSV escaping
+│   ├── formatters/ One pure module per tool: parse, analyse, transform
+│   ├── jsonPath/   Canonical JSON paths, node index, search, graph adapter and layout
+│   ├── mapper/     Path flattening, the suggestion engine, row lifecycle, import/export
+│   └── monaco/     Monaco bootstrap: local bundling, workers, language subset
+└── workers/        Off-main-thread JSON parsing and regex execution
+packages/
+└── graphql-formatter/  The GraphQL engine as a standalone workspace package
+scripts/            Build-time prerenderer (per-route HTML, sitemap, robots.txt)
+docs/               Design notes: privacy architecture, SEO pilot, feasibility reviews
 ```
 
 Each tool's parser is imported only by that tool, so opening YAML does not download
