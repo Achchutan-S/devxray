@@ -1,32 +1,43 @@
 import LZString from 'lz-string';
+import { copyText } from './clipboard';
 
 /**
  * Share-link encoding.
  *
- * A tool's state is compressed into the URL hash as `#/{tabId}/{payload}`, so a
- * link is entirely self-contained — no server, no database, nothing to expire.
- * Compression keeps typical payloads short enough for a normal URL even though
- * they are JSON.
+ * A tool's state is compressed into the URL hash as `#/{tabId}/{marker}.{payload}`,
+ * so a link is entirely self-contained — no server, no database, nothing to
+ * expire. `marker` picks the encoding, chosen fresh on every share so the
+ * shortest link wins regardless of content shape:
+ *  - `0`: no compression, just base64url. Wins for small or already-dense
+ *    payloads, where a compressed format's own header outweighs any savings.
+ *  - `1`: raw DEFLATE via `CompressionStream('deflate-raw')`.
+ *  - `2`: Brotli via `CompressionStream('brotli')`. Usually the smallest for
+ *    real text (JSON/Markdown/code) — 10-40% smaller than `1` — but a browser
+ *    without brotli support (older Safari/Firefox) can't produce or open it.
+ *  - Legacy (no marker at all): `lz-string`'s URI-safe compression, from
+ *    before any of the above existed. Every link ever handed out uses this
+ *    shape, so decoding it must keep working forever.
  *
- * Two encodings coexist:
- *  - Legacy (no marker): `lz-string`'s URI-safe compression. Every link ever
- *    handed out uses this shape, so decoding it must keep working forever.
- *  - v1 (`"1." ` prefix on the payload): raw DEFLATE via the browser's native
- *    `CompressionStream`, base64url-encoded. Measured 16-47% smaller than
- *    lz-string on real tool-state payloads (JSON/GraphQL/SQL text) — lz-string
- *    only wins on payloads too small for either encoding to matter.
- *  - `.` never appears in lz-string's own output alphabet
- *    (`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$`), so
- *    a legacy payload can never be mistaken for a versioned one.
- *  - `CompressionStream`/`DecompressionStream` postdate this app's declared
- *    Safari target (16.4 vs. the build's 15.4), so both encode and decode
- *    feature-detect it and fall back to (or fail toward) the legacy scheme
- *    rather than assuming it exists.
+ * Encoding computes every candidate its own browser supports and keeps the
+ * shortest — all three are native, sub-millisecond even at the 500KB share
+ * limit, so there's no cost to just measuring instead of guessing.
+ *
+ * `.` never appears in lz-string's own output alphabet
+ * (`ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$`), so a
+ * legacy payload can never be mistaken for a marked one.
+ *
+ * A browser with `CompressionStream` but no `'brotli'` format support throws
+ * synchronously from the constructor (per spec), so that candidate is simply
+ * skipped rather than crashing the share. A `'brotli'`-marked link opened in
+ * such a browser fails to decode — same as any other unsupported-format link
+ * — and surfaces the existing "doesn't support it" toast.
  */
 
 export const SHARE_DISABLED_CHARS = 500_000;
 const LONG_URL_WARNING_CHARS = 2048;
-const NATIVE_SCHEME_VERSION = '1';
+
+/** TS's bundled DOM lib doesn't list `'brotli'` as a `CompressionFormat` yet, though every current browser accepts it. */
+type ExtendedCompressionFormat = CompressionFormat | 'brotli';
 
 export function isShareDisabled(inputLength: number): boolean {
   return inputLength > SHARE_DISABLED_CHARS;
@@ -56,38 +67,52 @@ function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-async function compressNative(text: string): Promise<string> {
-  const stream = new CompressionStream('deflate-raw');
+// Read and write concurrently: awaiting `writer.write()` before anything reads
+// the readable side deadlocks on backpressure in browsers and the promise never
+// settles. Promise.all still routes a failed write into this promise's rejection.
+async function transform(bytes: Uint8Array<ArrayBuffer>, stream: CompressionStream | DecompressionStream): Promise<ArrayBuffer> {
   const writer = stream.writable.getWriter();
-  // Awaited (not fire-and-forget): a malformed write must reject through this
-  // function's own promise chain, not surface as an unhandled rejection on a
-  // detached write() promise nobody was still holding a reference to.
-  await writer.write(new TextEncoder().encode(text));
-  await writer.close();
-  const buffer = await new Response(stream.readable).arrayBuffer();
+  const [buffer] = await Promise.all([
+    new Response(stream.readable).arrayBuffer(),
+    writer.write(bytes).then(() => writer.close()),
+  ]);
+  return buffer;
+}
+
+async function compressWithFormat(bytes: Uint8Array<ArrayBuffer>, format: ExtendedCompressionFormat): Promise<string> {
+  const buffer = await transform(bytes, new CompressionStream(format as CompressionFormat));
   return toBase64Url(new Uint8Array(buffer));
 }
 
-async function decompressNative(payload: string): Promise<string> {
-  const stream = new DecompressionStream('deflate-raw');
-  const writer = stream.writable.getWriter();
-  await writer.write(fromBase64Url(payload));
-  await writer.close();
-  const buffer = await new Response(stream.readable).arrayBuffer();
+async function decompressWithFormat(payload: string, format: ExtendedCompressionFormat): Promise<string> {
+  const buffer = await transform(fromBase64Url(payload), new DecompressionStream(format as CompressionFormat));
   return new TextDecoder().decode(buffer);
 }
+
+/** Marker for each compressed candidate, tried independently so one unsupported format never blocks another. */
+const COMPRESSED_FORMATS: ReadonlyArray<readonly [marker: string, format: ExtendedCompressionFormat]> = [
+  ['2', 'brotli'],
+  ['1', 'deflate-raw'],
+];
 
 export async function encodeShareHash(state: ShareableState): Promise<string> {
   const json = JSON.stringify(state.data);
 
   if (supportsNativeCompression()) {
-    try {
-      const compressed = await compressNative(json);
-      return `#/${state.tab}/${NATIVE_SCHEME_VERSION}.${compressed}`;
-    } catch {
-      // Fall through to the legacy encoding below — an unexpected failure in
-      // an otherwise-detected API should still produce a working link.
+    const bytes = new TextEncoder().encode(json);
+    let best: readonly [marker: string, payload: string] = ['0', toBase64Url(bytes)];
+
+    for (const [marker, format] of COMPRESSED_FORMATS) {
+      try {
+        const payload = await compressWithFormat(bytes, format);
+        if (payload.length < best[1].length) best = [marker, payload];
+      } catch {
+        // Format unsupported by this browser (e.g. brotli on an older
+        // Safari/Firefox) — skip it, another candidate is still available.
+      }
     }
+
+    return `#/${state.tab}/${best[0]}.${best[1]}`;
   }
 
   return `#/${state.tab}/${LZString.compressToEncodedURIComponent(json)}`;
@@ -103,10 +128,15 @@ export async function decodeShareHash(hash: string): Promise<ShareableState | nu
   const versioned = /^([0-9]+)\.(.+)$/.exec(encoded);
   let json: string | null;
   if (versioned) {
-    const [, version, payload] = versioned;
-    if (version !== NATIVE_SCHEME_VERSION || !supportsNativeCompression() || payload === undefined) return null;
+    const [, marker, payload] = versioned;
+    if (payload === undefined) return null;
     try {
-      json = await decompressNative(payload);
+      if (marker === '0') {
+        json = new TextDecoder().decode(fromBase64Url(payload));
+      } else {
+        const format = COMPRESSED_FORMATS.find(([m]) => m === marker)?.[1];
+        json = format !== undefined && supportsNativeCompression() ? await decompressWithFormat(payload, format) : null;
+      }
     } catch {
       json = null;
     }
@@ -129,14 +159,28 @@ export async function buildShareUrl(state: ShareableState): Promise<string> {
 
 export type ShareResult = 'copied' | 'copied_long' | 'failed';
 
+/**
+ * Must be called synchronously from the click handler. Building the URL is
+ * async (compression), and Safari drops the user gesture across that await,
+ * rejecting a later `writeText`. A `ClipboardItem` holding the pending URL
+ * claims the clipboard inside the gesture and fills it once the URL resolves.
+ */
 export async function copyShareLink(state: ShareableState): Promise<ShareResult> {
-  const url = await buildShareUrl(state);
-  try {
-    await navigator.clipboard.writeText(url);
-    return url.length > LONG_URL_WARNING_CHARS ? 'copied_long' : 'copied';
-  } catch {
-    return 'failed';
+  const urlPromise = buildShareUrl(state);
+  const result = (url: string): ShareResult => (url.length > LONG_URL_WARNING_CHARS ? 'copied_long' : 'copied');
+
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    try {
+      const blob = urlPromise.then((url) => new Blob([url], { type: 'text/plain' }));
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': blob })]);
+      return result(await urlPromise);
+    } catch {
+      // Fall through: some browsers reject promise-valued ClipboardItems.
+    }
   }
+
+  const url = await urlPromise;
+  return (await copyText(url)) ? result(url) : 'failed';
 }
 
 /** Removes the hash without adding a history entry or triggering navigation. */

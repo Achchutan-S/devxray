@@ -7,6 +7,7 @@ import {
   buildShareUrl,
   clearShareHash,
   consumeSharedState,
+  copyShareLink,
   decodeShareHash,
   encodeShareHash,
   isShareDisabled,
@@ -51,9 +52,40 @@ describe('encode / decode round trip — native compression (default environment
     expect(hash).toMatch(/^#\/jwt\//);
   });
 
-  it('marks new links with the v1 native-compression prefix', async () => {
+  it('marks a link with a 0-2 scheme marker', async () => {
     const hash = await encodeShareHash({ tab: 'jwt', data: { token: 'x' } });
-    expect(hash).toMatch(/^#\/jwt\/1\./);
+    expect(hash).toMatch(/^#\/jwt\/[0-2]\./);
+  });
+
+  it('picks the raw (0) marker for a payload too small for compression to help', async () => {
+    // A handful of bytes: every compressed format's own header costs more
+    // than it saves, so the shortest candidate is always plain base64url.
+    const hash = await encodeShareHash({ tab: 'jwt', data: { token: 'x' } });
+    expect(hash).toMatch(/^#\/jwt\/0\./);
+  });
+
+  it('picks a compressed (1 or 2) marker for a payload compression actually shrinks', async () => {
+    const compressible = { input: 'repeat repeat repeat repeat repeat repeat repeat repeat repeat repeat' };
+    const hash = await encodeShareHash({ tab: 'json', data: compressible });
+    expect(hash).toMatch(/^#\/json\/[12]\./);
+  });
+
+  it('round-trips through every scheme marker (0, 1, 2)', async () => {
+    const raw = { tab: 'jwt', data: { token: 'x' } };
+    const rawHash = await encodeShareHash(raw);
+    expect(rawHash).toMatch(/^#\/jwt\/0\./);
+    expect(await decodeShareHash(rawHash)).toEqual(raw);
+
+    const compressible = { tab: 'json', data: { input: 'repeat '.repeat(20) } };
+    const compressedHash = await encodeShareHash(compressible);
+    expect(await decodeShareHash(compressedHash)).toEqual(compressible);
+  });
+
+  it('decodes a raw (0-marker) link without needing native compression support', async () => {
+    const state = { tab: 'jwt', data: { token: 'x' } };
+    const hash = await encodeShareHash(state);
+    expect(hash).toMatch(/^#\/jwt\/0\./);
+    expect(await withoutNativeCompression(() => decodeShareHash(hash))).toEqual(state);
   });
 });
 
@@ -62,7 +94,7 @@ describe('encode / decode round trip — legacy lz-string fallback', () => {
     const state = { tab: 'url', data: { input: 'https://example.com?a=1' } };
     const hash = withoutNativeCompression(() => encodeShareHash(state));
     const resolved = await hash;
-    expect(resolved).not.toMatch(/^#\/url\/1\./);
+    expect(resolved).not.toMatch(/^#\/url\/[0-2]\./);
     expect(await decodeShareHash(resolved)).toEqual(state);
   });
 
@@ -96,11 +128,16 @@ describe('decodeShareHash', () => {
     expect(await decodeShareHash('#/json/9.whatever')).toBeNull();
   });
 
-  it('rejects a v1 link when native decompression is unavailable', async () => {
-    const state = { tab: 'json', data: { input: '{"a":1}' } };
+  it('rejects a v1/v2 (compressed) link when native decompression is unavailable', async () => {
+    const state = { tab: 'json', data: { input: 'repeat '.repeat(20) } };
     const hash = await encodeShareHash(state);
-    expect(hash).toMatch(/^#\/json\/1\./);
+    expect(hash).toMatch(/^#\/json\/[12]\./);
     expect(await withoutNativeCompression(() => decodeShareHash(hash))).toBeNull();
+  });
+
+  it('rejects a malformed brotli (2-marker) payload without crashing', async () => {
+    const hash = '#/json/2.notrealbrotlidata';
+    await expect(decodeShareHash(hash)).resolves.toBeNull();
   });
 });
 
@@ -115,6 +152,18 @@ describe('buildShareUrl', () => {
   it('builds a full URL using the current origin and pathname', async () => {
     const url = await buildShareUrl({ tab: 'url', data: { input: 'x' } });
     expect(url.startsWith(window.location.origin + window.location.pathname + '#/url/')).toBe(true);
+  });
+});
+
+describe('copyShareLink', () => {
+  it('copies the share URL and reports success', async () => {
+    let copied = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (text: string) => { copied = text; } },
+    });
+    await expect(copyShareLink({ tab: 'json', data: { input: '{}' } })).resolves.toBe('copied');
+    expect(await decodeShareHash(copied.slice(copied.indexOf('#')))).toEqual({ tab: 'json', data: { input: '{}' } });
   });
 });
 
