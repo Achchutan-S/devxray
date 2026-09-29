@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Eraser, Link2 } from 'lucide-react';
+import { Copy, Download, Eraser, Link2, Volume2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { InlineError, IconButton, Pane, PaneBar, PaneBody, PaneHeader, ShareButton, TabShell, ToolButton } from '@/components/common';
+import { InlineError, IconButton, Pane, PaneBar, PaneBody, PaneHeader, ReadAloudBar, ShareButton, TabShell, ToolButton } from '@/components/common';
 import {
   useCommandPaletteCommands,
   useDebounce,
@@ -14,6 +14,7 @@ import { useHistoryStore } from '@/store';
 import { copyText } from '@/utils/clipboard';
 import { CONFIG } from '@/utils/constants';
 import { renderMarkdown } from '@/utils/formatters/markdown';
+import { downloadHtmlDocument } from '@/utils/formatters/markdownExport';
 import { consumeHistoryRestore } from '@/utils/historyRestore';
 import { consumeSharedState } from '@/utils/shareState';
 
@@ -62,6 +63,16 @@ export function MarkdownTab() {
     }
   }, [debouncedInput]);
 
+  const [readAloudOpen, setReadAloudOpen] = useState(false);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Exports exactly what the preview shows (and "Copy HTML" copies): the sanitized string, from the same debounced input.
+  const handleDownloadHtml = useCallback(() => {
+    if (html === '') return;
+    downloadHtmlDocument(html, debouncedInput);
+    toast.success('Downloaded HTML');
+  }, [html, debouncedInput]);
+
   const handleClear = useCallback(() => setInput(''), [setInput]);
 
   const handleFileDrop = useCallback(
@@ -100,9 +111,10 @@ export function MarkdownTab() {
   const commandGetter = useCallback(
     () => [
       { id: 'markdown:copy-html', label: 'Copy sanitized HTML', category: 'context' as const, icon: Copy, run: handleCopyHtml },
+      { id: 'markdown:download-html', label: 'Download as HTML', category: 'context' as const, icon: Download, run: handleDownloadHtml },
       { id: 'markdown:share', label: 'Copy share link', category: 'context' as const, icon: Link2, run: shareLink },
     ],
-    [handleCopyHtml, shareLink],
+    [handleCopyHtml, handleDownloadHtml, shareLink],
   );
   useCommandPaletteCommands(TAB_ID, commandGetter);
 
@@ -138,11 +150,25 @@ export function MarkdownTab() {
         <PaneHeader
           title="Preview"
           actions={
-            <ToolButton icon={Copy} onClick={handleCopyHtml} disabled={html === ''}>
-              Copy HTML
-            </ToolButton>
+            <>
+              <ToolButton
+                icon={Volume2}
+                onClick={() => setReadAloudOpen((open) => !open)}
+                disabled={html === ''}
+                aria-pressed={readAloudOpen}
+              >
+                Read Aloud
+              </ToolButton>
+              <ToolButton icon={Download} onClick={handleDownloadHtml} disabled={html === ''}>
+                Download HTML
+              </ToolButton>
+              <ToolButton icon={Copy} onClick={handleCopyHtml} disabled={html === ''}>
+                Copy HTML
+              </ToolButton>
+            </>
           }
         />
+        {readAloudOpen && html !== '' && <ReadAloudBar previewRef={previewRef} html={html} />}
         <PaneBody scroll className="p-4">
           {html === '' ? (
             <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-fg-muted">
@@ -150,6 +176,7 @@ export function MarkdownTab() {
             </div>
           ) : (
             <div
+              ref={previewRef}
               className="dx-markdown-preview max-w-none text-sm text-fg"
               // Sanitized by DOMPurify inside renderMarkdown — never fed raw `marked` output.
               dangerouslySetInnerHTML={{ __html: html }}

@@ -2,6 +2,7 @@ export { CodeEditor } from './CodeEditor';
 export { FieldSelector } from './FieldSelector';
 export type { SelectableField } from './FieldSelector';
 export { InlineError } from './InlineError';
+export { ReadAloudBar } from './ReadAloudBar';
 export { ShareButton } from './ShareButton';
 export { JsonTreeView } from './JsonTreeView';
 export { CommandPalette } from './CommandPalette';

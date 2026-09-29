@@ -168,6 +168,32 @@ not network I/O.
 - JPEG has no alpha channel, so transparent pixels are flattened onto white
   before encoding; PNG and WebP keep their transparency.
 
+## 6c. Markdown: Copy HTML, Download HTML, Read Aloud
+
+All three start from the same string: `renderMarkdown` (`marked` → DOMPurify,
+`style` forbidden). Nothing re-parses the Markdown and nothing adds a network path.
+
+- **Rendering / Copy as HTML** — local, as §2. Copy writes the sanitized HTML to
+  the clipboard.
+- **Download HTML** — local. The sanitized HTML is wrapped in a standalone
+  document (`src/utils/formatters/markdownExport.ts`) with inline CSS and a
+  `default-src 'none'; img-src data: https:; style-src 'unsafe-inline'` CSP, so
+  the saved file cannot run script even if sanitization missed something. It is
+  saved through a `blob:` URL that is revoked after the click. Images referenced
+  by `https:` URLs in the Markdown load when *the saved file* is opened, as they
+  do in the preview.
+- **Read Aloud** — uses the browser's Web Speech API (`speechSynthesis`,
+  `SpeechSynthesisUtterance`). Narration text is extracted from the rendered
+  preview DOM (`src/utils/tts/narration.ts`) and handed to the browser in
+  ≤200-character utterances. Dev X-Ray has no server and sends the text nowhere.
+  **Scope of that claim:** speech is synthesised by the browser/OS, not by Dev
+  X-Ray, and some browser voices are online services run by the browser vendor
+  (`SpeechSynthesisVoice.localService === false`, e.g. Chrome's "Google …"
+  voices). The UI labels those voices "online" and, when one is selected,
+  replaces "Your text stays on this device" with a notice that the browser may
+  send the text to its speech service. Read Aloud settings (speed, voice, skip
+  code) live in component state only — no new storage key.
+
 ## 7. JWT security decisions
 
 1. **Decoding ≠ verification.** Decoding is base64url + JSON and proves nothing.
@@ -301,6 +327,8 @@ Do not add these to the product, in marketing copy or anywhere else:
   statement is that *the application does not transmit your data*; the browser,
   the clipboard, extensions and any link you share are separate matters
 - ❌ "Zero network requests" — loading the app is itself a network request
+- ❌ "Read Aloud audio is generated entirely on your device" — Dev X-Ray does not
+  upload the text, but the browser may use an online voice (see §6c)
 - ❌ "Fully open source" as a claim about the *whole shipped bundle* — the
   project's own source is MIT licensed, but bundled dependencies stay under
   their own terms; describe the two separately
