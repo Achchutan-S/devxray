@@ -123,14 +123,14 @@ export function DiffTab() {
               <IconButton icon={Copy} label="Copy original" onClick={() => copy(original, 'original')} />
             }
           />
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <PaneBody>
             <CodeEditor
               value={original}
               onChange={setOriginal}
               language={language}
               ariaLabel="Original text"
             />
-          </div>
+          </PaneBody>
         </div>
 
         <div className="flex min-w-0 min-h-0 flex-1 flex-col">
@@ -140,14 +140,14 @@ export function DiffTab() {
               <IconButton icon={Copy} label="Copy modified" onClick={() => copy(modified, 'modified')} />
             }
           />
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <PaneBody>
             <CodeEditor
               value={modified}
               onChange={setModified}
               language={language}
               ariaLabel="Modified text"
             />
-          </div>
+          </PaneBody>
         </div>
       </div>
 
